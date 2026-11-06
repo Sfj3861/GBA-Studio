@@ -22,6 +22,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -199,11 +200,36 @@ fun AssetStudioScreen() {
     var mapTiles by remember { mutableStateOf<ByteArray?>(null) }
     var tilemap by remember { mutableStateOf<ByteArray?>(null) }
     var assetBundleZip by remember { mutableStateOf<ByteArray?>(null) }
+    var convertedAssets by remember { mutableStateOf<GbaPaletteResult?>(null) }
+    var paletteBank by remember { mutableStateOf(0) }
     var mapSummary by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var summary by remember { mutableStateOf("Importa una imagen PNG, JPG o WebP.") }
     DisposableEffect(preview) {
         onDispose { preview?.takeUnless { it.isRecycled }?.recycle() }
+    }
+    fun rebuildMap(result: GbaPaletteResult, bank: Int) {
+        runCatching { GbaTileMapBuilder.build(result, paletteBank = bank) }
+            .onSuccess { built ->
+                mapTiles = built.uniqueTiles4bpp
+                tilemap = built.bytes
+                assetBundleZip = runCatching { GbaAssetBundleExporter.createZip(result, built) }.getOrNull()
+                val mapPixels = GbaTileMapPreviewRenderer.renderArgbPixels(built, result.colors)
+                preview = Bitmap.createBitmap(
+                    built.widthTiles * 8,
+                    built.heightTiles * 8,
+                    Bitmap.Config.ARGB_8888
+                ).apply {
+                    setPixels(mapPixels, 0, built.widthTiles * 8, 0, 0, built.widthTiles * 8, built.heightTiles * 8)
+                }
+                mapSummary = "Vista previa del fondo: ${built.widthTiles * 8}×${built.heightTiles * 8} px · modo ${built.sizeCode} · banco ${built.paletteBank} · ${built.uniqueTileCount} tiles únicos"
+            }.onFailure {
+                mapTiles = null
+                tilemap = null
+                assetBundleZip = null
+                preview = runCatching { AssetStudio.renderPreview(result) }.getOrNull()
+                mapSummary = "Tilemap no generado: ${it.message}. Se muestra la imagen convertida sin mapa."
+            }
     }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching {
@@ -221,36 +247,16 @@ fun AssetStudioScreen() {
             try {
                 runCatching { AssetStudio.convertTo4Bpp(bitmap) }
                     .onSuccess { result ->
+                        convertedAssets = result
                         palette = AssetStudio.paletteBytes(result.colors)
                         tiles = result.tiles4bpp
-                        val mapResult = runCatching { GbaTileMapBuilder.build(result) }
-                        mapResult.onSuccess { built ->
-                            mapTiles = built.uniqueTiles4bpp
-                            tilemap = built.bytes
-                            assetBundleZip = runCatching {
-                                GbaAssetBundleExporter.createZip(result, built)
-                            }.getOrNull()
-                            val mapPixels = GbaTileMapPreviewRenderer.renderArgbPixels(built, result.colors)
-                            preview = Bitmap.createBitmap(
-                                built.widthTiles * 8,
-                                built.heightTiles * 8,
-                                Bitmap.Config.ARGB_8888
-                            ).apply {
-                                setPixels(mapPixels, 0, built.widthTiles * 8, 0, 0, built.widthTiles * 8, built.heightTiles * 8)
-                            }
-                            mapSummary = "Vista previa del fondo: ${built.widthTiles * 8}×${built.heightTiles * 8} px · modo ${built.sizeCode} · ${built.uniqueTileCount} tiles únicos"
-                        }.onFailure {
-                            mapTiles = null
-                            tilemap = null
-                            assetBundleZip = null
-                            preview = runCatching { AssetStudio.renderPreview(result) }.getOrNull()
-                            mapSummary = "Tilemap no generado: ${it.message}. Se muestra la imagen convertida sin mapa."
-                        }
+                        rebuildMap(result, paletteBank)
                         summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles de origen: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
                     }.onFailure {
                     summary = "Error: ${it.message}"
                     palette = null
                     tiles = null
+                    convertedAssets = null
                     mapTiles = null
                     tilemap = null
                     assetBundleZip = null
@@ -264,6 +270,7 @@ fun AssetStudioScreen() {
             summary = "Error al importar: ${it.message}"
             palette = null
             tiles = null
+            convertedAssets = null
             mapTiles = null
             tilemap = null
             assetBundleZip = null
@@ -309,6 +316,14 @@ fun AssetStudioScreen() {
         Text("Convierte imágenes en tiles 4bpp de 8×8 y paletas BGR555 para gráficos GBA.")
         Button(onClick = { imagePicker.launch("image/*") }) { Text("Importar imagen") }
         Text(summary)
+        Text("Banco de paleta de fondo: $paletteBank")
+        Slider(
+            value = paletteBank.toFloat(),
+            onValueChange = { paletteBank = it.toInt() },
+            onValueChangeFinished = { convertedAssets?.let { assets -> rebuildMap(assets, paletteBank) } },
+            valueRange = 0f..15f,
+            steps = 14
+        )
         if (mapSummary.isNotBlank()) Text(mapSummary, color = MaterialTheme.colorScheme.secondary)
         preview?.let { bitmap ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
