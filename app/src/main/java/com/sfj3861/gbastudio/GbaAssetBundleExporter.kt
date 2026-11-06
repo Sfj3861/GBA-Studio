@@ -30,7 +30,7 @@ object GbaAssetBundleExporter {
             "background.map" to map.bytes,
             "asset.h" to header(assets, map).toByteArray(StandardCharsets.UTF_8),
             "asset.json" to manifest(assets, map).toByteArray(StandardCharsets.UTF_8),
-            "README.txt" to README.toByteArray(StandardCharsets.UTF_8)
+            "README.txt" to readme(map).toByteArray(StandardCharsets.UTF_8)
         )
 
         ZipOutputStream(output).use { zip ->
@@ -86,7 +86,7 @@ object GbaAssetBundleExporter {
         }
     """.trimIndent() + "\n"
 
-    private const val README = """GBA Studio asset bundle
+    private fun readme(map: GbaTileMapResult): String = """GBA Studio asset bundle
 
 Files:
 - tiles.4bpp: deduplicated 8x8 4bpp graphics, 32 bytes per tile.
