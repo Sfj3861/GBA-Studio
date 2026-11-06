@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -64,7 +63,7 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
             try {
                 withContext(Dispatchers.IO) {
                     val input = context.contentResolver.openInputStream(uri)
-                        ?: error("No se pudo abrir el archivo seleccionado.")
+                        ?: throw IllegalStateException("No se pudo abrir el archivo seleccionado.")
                     repository.importProject(input)
                 }
                 refresh()
@@ -81,7 +80,7 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
             try {
                 withContext(Dispatchers.IO) {
                     val output = context.contentResolver.openOutputStream(uri)
-                        ?: error("No se pudo crear el archivo de destino.")
+                        ?: throw IllegalStateException("No se pudo crear el archivo de destino.")
                     repository.exportProject(project, output)
                 }
                 saveState = "Proyecto exportado"
