@@ -1,6 +1,7 @@
 package com.sfj3861.gbastudio
 
 import android.os.Bundle
+import androidx.compose.ui.platform.LocalContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.sp
 
 private enum class Destination(val label: String, val marker: String) {
     HOME("Inicio", "⌂"),
+    PROJECTS("Proyectos", "▣"),
     CODE("Code Studio", "</>"),
     PORTING("Portabilidad", "⇄"),
     ROM("ROM Analyzer", "▤"),
@@ -122,7 +124,7 @@ private fun GbaStudioApp() {
                 }
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     listOf(
-                        Destination.HOME, Destination.CODE, Destination.ROM,
+                        Destination.HOME, Destination.PROJECTS, Destination.CODE, Destination.ROM,
                         Destination.TUTORIALS, Destination.AI
                     ).forEach { item ->
                         NavigationBarItem(
@@ -168,6 +170,7 @@ private fun AppHeader() {
 private fun DestinationContent(destination: Destination, navigate: (Destination) -> Unit) {
     when (destination) {
         Destination.HOME -> HomeScreen(navigate)
+        Destination.PROJECTS -> ProjectManagerScreen(ProjectRepository(LocalContext.current)) { /* project editor is next */ }
         Destination.TUTORIALS -> TutorialScreen()
         Destination.AI -> AiScreen()
         Destination.ROM -> RomAnalyzerScreen()
@@ -211,6 +214,7 @@ private fun HomeScreen(navigate: (Destination) -> Unit) {
         }
         Text("MÓDULOS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         val modules = listOf(
+            Triple(Destination.PROJECTS, "Gestor de proyectos", "Crea, organiza y administra proyectos GBA locales."),
             Triple(Destination.CODE, "Code Studio", "Editor C/C++ y futura compilación ARM."),
             Triple(Destination.PORTING, "Portabilidad", "Preparación de proyectos para GBA."),
             Triple(Destination.ROM, "ROM Analyzer", "Inspección de cabeceras y estructura ROM."),
