@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.delay
 
 @Composable
@@ -393,18 +395,18 @@ fun EmulatorScreen() {
                     romData = data
                     core = newCore
                     snapshot = newCore.snapshot()
-                    status = "ROM cargada: \${data.size} bytes"
+                    status = "ROM cargada: ${data.size} bytes"
                 }.onFailure {
                     romData = null
                     core = null
                     snapshot = null
-                    status = "No se pudo iniciar: \${it.message}"
+                    status = "No se pudo iniciar: ${it.message}"
                 }
             }.onFailure {
                 romData = null
                 core = null
                 snapshot = null
-                status = "Error al importar: \${it.message}"
+                status = "Error al importar: ${it.message}"
             }
         }
     }
@@ -445,7 +447,7 @@ fun EmulatorScreen() {
                         snapshot = it.snapshot()
                         status = "CPU reiniciada desde el punto de entrada."
                     }
-                    .onFailure { status = "No se pudo reiniciar: \${it.message}" }
+                    .onFailure { status = "No se pudo reiniciar: ${it.message}" }
             }
         ) { Text("Reiniciar CPU") }
 
@@ -457,11 +459,11 @@ fun EmulatorScreen() {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("PC: 0x%08X".format(state.pc), fontFamily = FontFamily.Monospace)
-                    Text("Modo: \${if (state.thumb) "Thumb" else "ARM"} · Pasos: \${state.steps}")
+                    Text("Modo: ${if (state.thumb) "Thumb" else "ARM"} · Pasos: ${state.steps}")
                     Text("CPSR: 0x%08X".format(state.cpsr), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                    Text("Estado: \${if (state.halted) "Detenido" else if (running) "Ejecutando" else "En pausa"}")
+                    Text("Estado: ${if (state.halted) "Detenido" else if (running) "Ejecutando" else "En pausa"}")
                     state.registers.forEachIndexed { index, value ->
-                        Text("R\${index.toString().padStart(2, '0')}: 0x%08X".format(value), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        Text("R${index.toString().padStart(2, '0')}: 0x%08X".format(value), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
             }
