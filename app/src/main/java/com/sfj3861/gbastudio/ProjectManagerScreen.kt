@@ -1,5 +1,9 @@
 package com.sfj3861.gbastudio
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,6 +57,40 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
     var deleting by remember { mutableStateOf<GbaProject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var exportTarget by remember { mutableStateOf<GbaProject?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val input = context.contentResolver.openInputStream(uri)
+                        ?: error("No se pudo abrir el archivo seleccionado.")
+                    repository.importProject(input)
+                }
+                refresh()
+                error = null
+            } catch (e: Exception) {
+                error = e.message ?: "No se pudo importar el proyecto."
+            }
+        }
+    }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        val project = exportTarget
+        exportTarget = null
+        if (uri != null && project != null) scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val output = context.contentResolver.openOutputStream(uri)
+                        ?: error("No se pudo crear el archivo de destino.")
+                    repository.exportProject(project, output)
+                }
+                saveState = "Proyecto exportado"
+                error = null
+            } catch (e: Exception) {
+                error = e.message ?: "No se pudo exportar el proyecto."
+            }
+        }
+    }
 
     fun refresh() { projects = repository.list() }
     fun loadFile(project: GbaProject, relativePath: String) {
@@ -119,7 +157,12 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
                     Text(screenTitle, style = MaterialTheme.typography.headlineMedium)
                     Text("Proyectos guardados localmente en este dispositivo.")
                 }
-                Button(onClick = { showCreate = true }) { Text("Nuevo proyecto") }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream")) }) {
+                        Text("Importar")
+                    }
+                    Button(onClick = { showCreate = true }) { Text("Nuevo proyecto") }
+                }
             }
             if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
             if (projects.isEmpty()) {
@@ -140,6 +183,7 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(onClick = { activeProject = project; selectedFile = null; error = null }) { Text("Abrir") }
+                                    OutlinedButton(onClick = { exportTarget = project; exportLauncher.launch(project.name + ".gbastudio.zip") }) { Text("Exportar") }
                                     OutlinedButton(onClick = { editing = project }) { Text("Renombrar") }
                                     TextButton(onClick = { deleting = project }) { Text("Eliminar") }
                                 }
