@@ -9,14 +9,14 @@
 - Local project manager: create, open, rename and delete projects.
 - Basic C/C++ and text editor with file creation, lightweight syntax highlighting, manual save and autosave.
 - ZIP project import/export through Android's Storage Access Framework, with path traversal and uncompressed-size checks.
-- GBA ROM header analyzer, checksum validation and paged hexadecimal viewer.
-- ARM/Thumb disassembler for a documented subset of common instructions; unknown opcodes are displayed as data.
+- GBA ROM header analyzer: complement checksum, fixed byte, entry branch and logo-data presence checks, plus a paged hexadecimal viewer (logo bytes are not verified against BIOS data).
+- ARM/Thumb disassembler for a documented subset of common instructions, including several immediate/register transfers, rotated ARM immediates and branch targets; unknown opcodes are displayed as data.
 - C/C++ quick diagnostics for common structural mistakes. These are heuristics, not compiler diagnostics.
-- Experimental raw-section ROM image builder with named symbols and ABS32, REL32, ARM_BRANCH24 and THUMB_BRANCH11 relocations, plus GBA memory-region placement and GNU ld memory-map script.
+- Experimental raw-section ROM image builder with named symbols, ABS32/REL32/ARM_BRANCH24/THUMB_BRANCH11 relocations, overlap/range/alignment checks, a GBA entry branch and validated header fields. An optional 156-byte logo block can be supplied by the user; no logo art is bundled.
 - Asset Studio image import and conversion to 8x8 4bpp tile data, with transparent index 0 and deterministic frequency-based BGR555 palette reduction.
-- Experimental ARM7TDMI instruction stepper with a small ARM/Thumb instruction subset.
+- Experimental ARM7TDMI instruction stepper with a small ARM/Thumb arithmetic/branch subset, N/Z/C/V flags, ARM condition evaluation and BX ARM/Thumb state changes; no memory bus or GBA peripherals.
 - CMake/NDK native library and JNI bootstrap.
-- JVM tests for ROM headers, disassembly, diagnostics, raw ROM image generation and palette quantization.
+- JVM tests for ROM headers, disassembly, diagnostics, raw ROM image generation, palette quantization and CPU-stepper behavior.
 
 ## Important limitations
 
@@ -24,11 +24,11 @@ This is an evolving development build, not yet a complete GBA IDE.
 
 - **Compiler:** a bare-metal ARM7TDMI C/C++ toolchain is not integrated yet.
 - **Linker:** the in-app builder links raw sections, resolves explicitly supplied symbols and applies four relocation types. It does not parse ELF object files, support the complete ARM relocation ABI or provide a complete compiler toolchain. The GNU ld memory-map script is an initial integration artifact.
-- **ROM bootability:** the experimental image builder does not include the GBA BIOS logo/header template or startup runtime. Its output is not guaranteed to boot on hardware or in an emulator.
+- **ROM bootability:** the image builder writes the entry branch and standard metadata/checksum fields and accepts a caller-supplied 156-byte logo block. It does not verify that logo against the BIOS reference, nor generate startup/runtime code or initialize RAM sections. Its output is not guaranteed to boot on hardware or in an emulator.
 - **Disassembler:** decoding coverage is partial; unknown instructions remain \`.word\` / \`.hword\`.
 - **Diagnostics:** fast heuristic checks only; use a real compiler for authoritative errors.
 - **Asset Studio:** converts raster images to tiled 4bpp and BGR555 palette data. When an image exceeds 15 opaque colors, a deterministic frequency-based palette reduction maps excess colors to the nearest selected color. Tilemaps, animation, dithering and advanced palette optimization remain future work.
-- **Emulator:** currently a CPU instruction stepper for a small subset. It does not emulate the PPU/video, audio, DMA, timers, interrupts, memory-mapped peripherals or full ARM7TDMI behavior. It cannot yet run complete GBA games.
+- **Emulator:** currently a CPU instruction stepper for a small subset of arithmetic and branches. Loads/stores, full ARM7TDMI coverage, BIOS, PPU/video, audio, DMA, timers, interrupts and memory-mapped peripherals are not emulated. It cannot yet run complete GBA games.
 - **ChatGPT:** API integration is not connected yet.
 
 The Android build has not yet been confirmed green on CI or tested on physical hardware. No APK release is claimed by this repository state.
