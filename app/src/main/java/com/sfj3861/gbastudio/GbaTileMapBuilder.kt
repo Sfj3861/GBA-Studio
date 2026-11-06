@@ -4,6 +4,7 @@ data class GbaTileMapResult(
     val widthTiles: Int,
     val heightTiles: Int,
     val sizeCode: Int,
+    val paletteBank: Int,
     val uniqueTileCount: Int,
     val uniqueTiles4bpp: ByteArray,
     /** Entries are stored in GBA screenblock order, not a flat visual row-major matrix. */
@@ -100,6 +101,6 @@ object GbaTileMapBuilder {
             bytes[index * 2] = entry.toByte()
             bytes[index * 2 + 1] = (entry ushr 8).toByte()
         }
-        return GbaTileMapResult(mapWidth, mapHeight, sizeCode, uniqueTiles.size, uniqueData, entries, bytes)
+        return GbaTileMapResult(mapWidth, mapHeight, sizeCode, paletteBank, uniqueTiles.size, uniqueData, entries, bytes)
     }
 }
