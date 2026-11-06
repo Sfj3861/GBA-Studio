@@ -64,10 +64,24 @@ object ArmDisassembler {
             }
             x and 0xF800 == 0xF000 -> "BL (prefix)" to "offset=0x%03X".format(x and 0x7FF)
             x and 0xF800 == 0xF800 -> "BL (suffix)" to "offset=0x%03X".format(x and 0x7FF)
-            x and 0xF800 == 0x6000 -> {
+            x and 0xE000 == 0x6000 -> {
+                val byteTransfer = x and 0x1000 != 0
                 val load = x and 0x0800 != 0
-                val imm = ((x ushr 6) and 31) shl 2
-                (if (load) "LDR" else "STR") to "r${x and 7}, [r${(x ushr 3) and 7}, #$imm]"
+                val rawOffset = (x ushr 6) and 31
+                val offset = if (byteTransfer) rawOffset else rawOffset shl 2
+                (if (load) "LDR" else "STR") + (if (byteTransfer) "B" else "") to
+                    "r${x and 7}, [r${(x ushr 3) and 7}, #$offset]"
+            }
+            x and 0xF000 == 0x8000 -> {
+                val load = x and 0x0800 != 0
+                val offset = ((x ushr 6) and 31) shl 1
+                (if (load) "LDRH" else "STRH") to
+                    "r${x and 7}, [r${(x ushr 3) and 7}, #$offset]"
+            }
+            x and 0xF000 == 0x9000 -> {
+                val load = x and 0x0800 != 0
+                val offset = (x and 0xFF) shl 2
+                (if (load) "LDR" else "STR") to "r${(x ushr 8) and 7}, [SP, #$offset]"
             }
             x and 0xF000 == 0x5000 -> "LOAD/STORE (reg)" to "op=0x${(x ushr 9) and 7}, r${x and 7}, [r${(x ushr 3) and 7}, r${(x ushr 6) and 7}]"
             x and 0xFF00 == 0x4700 -> "BX" to "r${(x ushr 3) and 15}"
