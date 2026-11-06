@@ -170,6 +170,7 @@ private fun DestinationContent(destination: Destination, navigate: (Destination)
         Destination.HOME -> HomeScreen(navigate)
         Destination.TUTORIALS -> TutorialScreen()
         Destination.AI -> AiScreen()
+        Destination.ROM -> RomAnalyzerScreen()
         else -> ModulePlaceholder(destination)
     }
 }
