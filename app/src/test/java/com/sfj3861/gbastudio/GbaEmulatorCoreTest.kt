@@ -147,6 +147,45 @@ class GbaEmulatorCoreTest {
         assertTrue(state.message.contains("solo lectura"))
     }
 
+
+    @Test fun executesArmMultiplyAccumulate() {
+        val core = GbaEmulatorCore(
+            romOf(0xE0223190.toInt()), // MLA r2, r0, r1, r3
+            initialRegisters = IntArray(16).also {
+                it[0] = 6
+                it[1] = 7
+                it[3] = 5
+            }
+        )
+        val state = core.step()
+        assertEquals(47, state.registers[2])
+        assertFalse(state.halted)
+    }
+
+    @Test fun refusesToWriteToRomFromThumbCode() {
+        val rom = ByteArray(0xC0)
+        rom[0] = 0x41
+        rom[1] = 0x60.toByte() // STR r1, [r0]
+        val core = GbaEmulatorCore(
+            rom,
+            startInThumb = true,
+            initialRegisters = IntArray(16).also {
+                it[0] = GbaEmulatorCoreTestBase.ROM_BASE
+                it[1] = 0x12345678
+            }
+        )
+        val state = core.step()
+        assertTrue(state.halted)
+        assertTrue(state.message.contains("solo lectura"))
+    }
+
+    @Test fun rejectsUnsupportedArmHalfwordTransferInsteadOfExecutingAsAlu() {
+        val core = GbaEmulatorCore(romOf(0xE1D000B0.toInt()))
+        val state = core.step()
+        assertTrue(state.halted)
+        assertTrue(state.message.contains("halfword"))
+    }
+
     private fun romOf(vararg instructions: Int): ByteArray {
         val rom = ByteArray(0xC0)
         instructions.forEachIndexed { index, instruction ->
