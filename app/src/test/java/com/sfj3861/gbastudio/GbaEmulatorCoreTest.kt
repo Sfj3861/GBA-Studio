@@ -220,6 +220,99 @@ class GbaEmulatorCoreTest {
         assertTrue(state.message.contains("Thumb opcode"))
     }
 
+
+    @Test fun executesThumbShiftAndArithmeticInstructions() {
+        val rom = ByteArray(0xC0)
+        val instructions = intArrayOf(0x0048, 0x1CC8, 0x4348) // LSLS r0,r1,#1; ADDS r0,r1,#3; MULS r0,r1
+        instructions.forEachIndexed { index, value ->
+            rom[index * 2] = value.toByte()
+            rom[index * 2 + 1] = (value ushr 8).toByte()
+        }
+        val core = GbaEmulatorCore(
+            rom, startInThumb = true,
+            initialRegisters = IntArray(16).also { it[1] = 0x40000000 }
+        )
+        val shifted = core.step()
+        assertEquals(0x80000000.toInt(), shifted.registers[0])
+        assertTrue(shifted.cpsr and (1 shl 31) != 0)
+        val added = core.step()
+        assertEquals(0x40000003, added.registers[0])
+        val multiplied = core.step()
+        assertEquals(0xC0000000.toInt(), multiplied.registers[0])
+        assertFalse(multiplied.halted)
+    }
+
+    @Test fun pushPopRestoresRegistersAndBranchesToSavedPc() {
+        val rom = ByteArray(0xC2)
+        val instructions = intArrayOf(0xB503, 0x2000, 0x2100, 0xBD03)
+        instructions.forEachIndexed { index, value ->
+            rom[index * 2] = value.toByte()
+            rom[index * 2 + 1] = (value ushr 8).toByte()
+        }
+        rom[0xC0] = 0x09
+        rom[0xC1] = 0x22 // MOVS r2, #9
+        val initial = IntArray(16).also {
+            it[0] = 0x11111111
+            it[1] = 0x22222222
+            it[13] = 0x02000100
+            it[14] = GbaEmulatorCoreTestBase.ROM_BASE + 0xC0
+        }
+        val core = GbaEmulatorCore(rom, startInThumb = true, initialRegisters = initial)
+        repeat(4) { core.step() }
+        val restored = core.snapshot()
+        assertEquals(0x11111111, restored.registers[0])
+        assertEquals(0x22222222, restored.registers[1])
+        assertEquals(0x02000100, restored.registers[13])
+        assertEquals(GbaEmulatorCoreTestBase.ROM_BASE + 0xC0, restored.pc)
+        val afterReturn = core.step()
+        assertEquals(9, afterReturn.registers[2])
+    }
+
+    @Test fun executesThumbMultipleStoreAndLoadWithWriteback() {
+        val rom = ByteArray(0xC0)
+        val instructions = intArrayOf(0xC306, 0x2100, 0x2200, 0x3B08, 0xCB06)
+        instructions.forEachIndexed { index, value ->
+            rom[index * 2] = value.toByte()
+            rom[index * 2 + 1] = (value ushr 8).toByte()
+        }
+        val core = GbaEmulatorCore(
+            rom, startInThumb = true,
+            initialRegisters = IntArray(16).also {
+                it[1] = 0x11111111
+                it[2] = 0x22222222
+                it[3] = 0x02000000
+            }
+        )
+        repeat(instructions.size) { core.step() }
+        val state = core.snapshot()
+        assertEquals(0x11111111, state.registers[1])
+        assertEquals(0x22222222, state.registers[2])
+        assertEquals(0x02000008, state.registers[3])
+        assertFalse(state.halted)
+    }
+
+    @Test fun computesThumbPcRelativeAddress() {
+        val rom = ByteArray(0xC0)
+        rom[0] = 0x00
+        rom[1] = 0xA0.toByte() // ADD r0, PC, #0
+        val state = GbaEmulatorCore(rom, startInThumb = true).step()
+        assertEquals(GbaEmulatorCoreTestBase.ROM_BASE + 4, state.registers[0])
+    }
+
+    @Test fun combinesThumbLongBranchPrefixAndSuffix() {
+        val rom = ByteArray(0xC0)
+        rom[0] = 0x00
+        rom[1] = 0xF0.toByte()
+        rom[2] = 0x00
+        rom[3] = 0xF8.toByte()
+        val core = GbaEmulatorCore(rom, startInThumb = true)
+        core.step()
+        val state = core.step()
+        assertEquals(GbaEmulatorCoreTestBase.ROM_BASE + 4, state.pc)
+        assertEquals((GbaEmulatorCoreTestBase.ROM_BASE + 4) or 1, state.registers[14])
+        assertTrue(state.thumb)
+    }
+
     private fun romOf(vararg instructions: Int): ByteArray {
         val rom = ByteArray(0xC0)
         instructions.forEachIndexed { index, instruction ->
