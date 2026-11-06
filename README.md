@@ -12,7 +12,7 @@
 - GBA ROM header analyzer, checksum validation and paged hexadecimal viewer.
 - ARM/Thumb disassembler for a documented subset of common instructions; unknown opcodes are displayed as data.
 - C/C++ quick diagnostics for common structural mistakes. These are heuristics, not compiler diagnostics.
-- Experimental raw-section ROM image builder, GBA memory-region placement and GNU ld memory-map script.
+- Experimental raw-section ROM image builder with named symbols and ABS32, REL32, ARM_BRANCH24 and THUMB_BRANCH11 relocations, plus GBA memory-region placement and GNU ld memory-map script.
 - Asset Studio image import and conversion to 8x8 4bpp tile data and BGR555 palette bytes.
 - Experimental ARM7TDMI instruction stepper with a small ARM/Thumb instruction subset.
 - CMake/NDK native library and JNI bootstrap.
@@ -23,7 +23,7 @@
 This is an evolving development build, not yet a complete GBA IDE.
 
 - **Compiler:** a bare-metal ARM7TDMI C/C++ toolchain is not integrated yet.
-- **Linker:** the in-app builder places raw binary sections and fills selected header fields. It does not link ELF object files, resolve symbols or apply relocations. The GNU ld memory-map script is an initial integration artifact, not a complete toolchain.
+- **Linker:** the in-app builder links raw sections, resolves explicitly supplied symbols and applies four relocation types. It does not parse ELF object files, support the complete ARM relocation ABI or provide a complete compiler toolchain. The GNU ld memory-map script is an initial integration artifact.
 - **ROM bootability:** the experimental image builder does not include the GBA BIOS logo/header template or startup runtime. Its output is not guaranteed to boot on hardware or in an emulator.
 - **Disassembler:** decoding coverage is partial; unknown instructions remain \`.word\` / \`.hword\`.
 - **Diagnostics:** fast heuristic checks only; use a real compiler for authoritative errors.
