@@ -10,9 +10,6 @@ data class CodeDiagnostic(
 }
 
 object CppDiagnostics {
-    private val knownTypes = setOf("void", "char", "short", "int", "long", "float", "double", "bool", "unsigned", "signed", "const", "volatile", "static", "struct", "enum", "typedef")
-    private val controlWords = setOf("if", "else", "for", "while", "switch", "case", "return", "break", "continue", "sizeof", "do")
-
     /** Fast editor feedback. This is intentionally a heuristic checker, not a C/C++ compiler. */
     fun analyze(source: String): List<CodeDiagnostic> {
         val out = mutableListOf<CodeDiagnostic>()
