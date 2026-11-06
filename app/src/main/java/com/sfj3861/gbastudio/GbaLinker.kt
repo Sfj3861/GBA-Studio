@@ -100,7 +100,7 @@ object GbaLinker {
                     GbaRelocation.Type.REL32 -> write32(relocated, relocation.offset, target + relocation.addend - place)
                     GbaRelocation.Type.ARM_BRANCH24 -> {
                         val instruction = read32(relocated, relocation.offset)
-                        require(instruction and 0x0E000000 == 0x0A000000) {
+                        require((instruction and 0x0E000000) == 0x0A000000) {
                             "ARM_BRANCH24 requiere una instrucción B/BL."
                         }
                         val displacement = target + relocation.addend - (place + 8)
@@ -112,7 +112,7 @@ object GbaLinker {
                     GbaRelocation.Type.THUMB_BRANCH11 -> {
                         require(relocation.offset + 2 <= relocated.size) { "Relocación Thumb fuera de rango." }
                         val instruction = read16(relocated, relocation.offset)
-                        require(instruction and 0xF800 == 0xE000) { "THUMB_BRANCH11 requiere una instrucción B." }
+                        require((instruction and 0xF800) == 0xE000) { "THUMB_BRANCH11 requiere una instrucción B." }
                         val displacement = target + relocation.addend - (place + 4)
                         require((displacement and 1) == 0 && displacement in -2048..2046) {
                             "Destino Thumb branch fuera de rango o desalineado."
@@ -128,7 +128,7 @@ object GbaLinker {
         writeAscii(image, 0xB0, 2, makerCode.uppercase())
         image[0xB2] = version.toByte()
         var sum = 0
-        for (i in 0xA0..0xBC) sum += image[i].toInt() and 0xFF
+        for (i in 0xA0..0xBC) sum += (image[i].toInt() and 0xFF)
         image[0xBD] = ((-(sum + 0x19)) and 0xFF).toByte()
         return GbaLinkResult(
             image,
