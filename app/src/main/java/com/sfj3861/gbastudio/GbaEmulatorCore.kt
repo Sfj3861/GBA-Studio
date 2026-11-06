@@ -17,7 +17,6 @@ data class EmulatorSnapshot(
 class GbaEmulatorCore(rom: ByteArray) {
     private val memory = ByteArray(0x02000000)
     private val regs = IntArray(16)
-    private var cpsr = 0
     private var thumb = false
     private var steps = 0L
     private var halted = false
@@ -65,7 +64,7 @@ class GbaEmulatorCore(rom: ByteArray) {
             x and 0xFF00 == 0x4700 -> {
                 val target = regs[(x ushr 3) and 15]
                 thumb = target and 1 != 0
-                regs[15] = target and if (thumb) -2 else -4
+                regs[15] = target and (if (thumb) -2 else -4)
             }
             x == 0x46C0 -> Unit
             else -> throw IllegalArgumentException("Thumb opcode no implementado: %04X".format(x))
