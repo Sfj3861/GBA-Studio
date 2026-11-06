@@ -158,7 +158,8 @@ fun LinkerScreen() {
     }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null && output != null) runCatching {
-            context.contentResolver.openOutputStream(uri)?.use { it.write(output!!) }
+            val stream = context.contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino de exportación.")
+            stream.use { it.write(output!!) }
         }.onSuccess { report += "\nROM exportada." }.onFailure { report += "\nError al exportar: ${it.message}" }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -216,10 +217,16 @@ fun AssetStudioScreen() {
         }.onFailure { summary = "Error al importar: ${it.message}"; palette = null; tiles = null }
     }
     val saveTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && tiles != null) runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(tiles!!) } }
+        if (uri != null && tiles != null) runCatching {
+            val stream = context.contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino de tiles.")
+            stream.use { it.write(tiles!!) }
+        }.onFailure { summary = "Error al exportar tiles: ${it.message}" }
     }
     val savePalette = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && palette != null) runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(palette!!) } }
+        if (uri != null && palette != null) runCatching {
+            val stream = context.contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino de la paleta.")
+            stream.use { it.write(palette!!) }
+        }.onFailure { summary = "Error al exportar paleta: ${it.message}" }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Asset Studio", style = MaterialTheme.typography.headlineMedium)
