@@ -19,19 +19,20 @@ object AssetStudio {
         val height = bitmap.height / TILE_SIZE * TILE_SIZE
         require(width > 0 && height > 0) { "La imagen debe medir al menos 8×8 píxeles." }
         val palette = linkedMapOf<Int, Int>()
+        palette[0] = 0 // GBA sprite convention: palette index 0 is transparent.
         val indices = IntArray(width * height)
         for (y in 0 until height) for (x in 0 until width) {
             val argb = bitmap.getPixel(x, y)
             val color = if (Color.alpha(argb) < 128) 0 else {
-                val r = (Color.red(argb) shr 3) shl 10
-                val g = (Color.green(argb) shr 3) shl 5
-                val b = Color.blue(argb) shr 3
-                0x8000 or r or g or b
+                val r = (Color.red(argb) shr 3) and 31
+                val g = (Color.green(argb) shr 3) and 31
+                val b = (Color.blue(argb) shr 3) and 31
+                r or (g shl 5) or (b shl 10)
             }
-            if (!palette.containsKey(color)) palette[color] = palette.size
-            indices[y * width + x] = palette.getValue(color)
+            if (color != 0 && !palette.containsKey(color)) palette[color] = palette.size
+            indices[y * width + x] = if (color == 0) 0 else palette.getValue(color)
         }
-        if (palette.size > 16) warnings += "La imagen tiene más de 16 colores; los colores posteriores se aproximan a la paleta disponible."
+        if (palette.size > 16) warnings += "La imagen supera los 15 colores visibles disponibles cuando se reserva el índice 0 para transparencia; los colores posteriores se aproximan."
         val colors = palette.keys.take(16).toList()
         val tileBytes = ByteArray((width / 8) * (height / 8) * 32)
         var tileIndex = 0
