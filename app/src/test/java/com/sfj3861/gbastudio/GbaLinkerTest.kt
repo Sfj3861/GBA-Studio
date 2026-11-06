@@ -18,4 +18,23 @@ class GbaLinkerTest {
         assertEquals(0, (sum + (result.image[0xBD].toInt() and 255) + 0x19) and 255)
         assertTrue(result.warnings.isNotEmpty())
     }
+    @Test fun resolvesAbsoluteSymbolRelocationIntoRamSection() {
+        val result = GbaLinker.linkRawSections(
+            listOf(
+                GbaSection("code", byteArrayOf(0, 0, 0, 0), relocations = listOf(
+                    GbaRelocation(0, "dataStart", GbaRelocation.Type.ABS32)
+                )),
+                GbaSection("data", byteArrayOf(9, 8, 7, 6), region = GbaSection.Region.EWRAM)
+            ),
+            "RELOC TEST",
+            symbols = listOf(GbaSymbol("dataStart", "data", 0))
+        )
+        val patched = (result.image[0xC0].toInt() and 255) or
+            ((result.image[0xC1].toInt() and 255) shl 8) or
+            ((result.image[0xC2].toInt() and 255) shl 16) or
+            ((result.image[0xC3].toInt() and 255) shl 24)
+        assertEquals(GbaLinker.EWRAM_BASE, patched)
+        assertEquals(9, result.image[0xC4].toInt())
+    }
+
 }
