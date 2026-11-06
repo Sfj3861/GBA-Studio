@@ -40,13 +40,16 @@ object GbaAssetBundleExporter {
 
     private fun validate(assets: GbaPaletteResult, map: GbaTileMapResult) {
         require(assets.width > 0 && assets.height > 0 &&
-            assets.width % 8 == 0 && assets.height % 8 == 0) {
+            assets.width % 8 == 0 && assets.height % 8 == 0 &&
+            assets.width.toLong() * assets.height.toLong() <= AssetStudio.MAX_PIXELS.toLong()) {
             "Las dimensiones de origen no son válidas."
         }
-        require(assets.tileCount == (assets.width / 8) * (assets.height / 8)) {
+        val expectedSourceTiles = (assets.width.toLong() / 8L) * (assets.height.toLong() / 8L)
+        require(expectedSourceTiles in 1..(AssetStudio.MAX_PIXELS / 64).toLong() &&
+            assets.tileCount.toLong() == expectedSourceTiles) {
             "El recuento de tiles de origen no coincide con las dimensiones."
         }
-        require(assets.tiles4bpp.size == assets.tileCount * 32) {
+        require(assets.tiles4bpp.size.toLong() == assets.tileCount.toLong() * 32L) {
             "Los datos 4bpp de origen no coinciden con el recuento de tiles."
         }
         require(assets.colors.isNotEmpty() && assets.colors.size <= 16 && assets.colors[0] == 0) {
@@ -84,6 +87,13 @@ object GbaAssetBundleExporter {
         require(map.widthTiles == expectedWidth && map.heightTiles == expectedHeight) {
             "Las dimensiones del mapa no coinciden con la imagen de origen."
         }
+        val expectedSizeCode = when {
+            expectedWidth == 32 && expectedHeight == 32 -> 0
+            expectedWidth == 64 && expectedHeight == 32 -> 1
+            expectedWidth == 32 && expectedHeight == 64 -> 2
+            else -> 3
+        }
+        require(map.sizeCode == expectedSizeCode) { "El código de tamaño no coincide con el mapa." }
     }
 
     private fun header(assets: GbaPaletteResult, map: GbaTileMapResult): String = """
