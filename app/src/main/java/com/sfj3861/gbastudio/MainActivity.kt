@@ -171,6 +171,7 @@ private fun DestinationContent(destination: Destination, navigate: (Destination)
     when (destination) {
         Destination.HOME -> HomeScreen(navigate)
         Destination.PROJECTS -> ProjectManagerScreen(ProjectRepository(LocalContext.current))
+        Destination.CODE -> ProjectManagerScreen(ProjectRepository(LocalContext.current), "Code Studio · Elige un proyecto")
         Destination.TUTORIALS -> TutorialScreen()
         Destination.AI -> AiScreen()
         Destination.ROM -> RomAnalyzerScreen()
