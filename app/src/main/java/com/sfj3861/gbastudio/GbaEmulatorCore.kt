@@ -152,34 +152,34 @@ class GbaEmulatorCore(
         when (operation) {
             0 -> result = lhs and rhs
             1 -> result = lhs xor rhs
-            2 -> { result = lhs - rhs; arithmetic = true; carry = unsigned(lhs) >= unsigned(rhs); overflow = signedSubOverflow(lhs, rhs, result) }
-            3 -> { result = rhs - lhs; arithmetic = true; carry = unsigned(rhs) >= unsigned(lhs); overflow = signedSubOverflow(rhs, lhs, result) }
-            4 -> { result = lhs + rhs; arithmetic = true; carry = unsigned(lhs) + unsigned(rhs) > 0xFFFFFFFFL; overflow = signedAddOverflow(lhs, rhs, result) }
+            2 -> { result = lhs - rhs; arithmetic = true; carry = unsigned(lhs) >= unsigned(rhs); overflow = signedSubOverflowLong(lhs, rhs, 0) }
+            3 -> { result = rhs - lhs; arithmetic = true; carry = unsigned(rhs) >= unsigned(lhs); overflow = signedSubOverflowLong(rhs, lhs, 0) }
+            4 -> { result = lhs + rhs; arithmetic = true; carry = unsigned(lhs) + unsigned(rhs) > 0xFFFFFFFFL; overflow = signedAddOverflowLong(lhs, rhs, 0) }
             5 -> {
                 val unsignedSum = unsigned(lhs) + unsigned(rhs) + carryIn
                 result = (lhs.toLong() + rhs.toLong() + carryIn).toInt()
                 arithmetic = true
                 carry = unsignedSum > 0xFFFFFFFFL
-                overflow = signedAddOverflow(lhs, rhs + carryIn, result)
+                overflow = signedAddOverflowLong(lhs, rhs, carryIn)
             }
             6 -> {
                 val borrow = 1 - carryIn
                 result = lhs - rhs - borrow
                 arithmetic = true
                 carry = unsigned(lhs) >= unsigned(rhs) + borrow
-                overflow = signedSubOverflow(lhs, rhs + borrow, result)
+                overflow = signedSubOverflowLong(lhs, rhs, borrow)
             }
             7 -> {
                 val borrow = 1 - carryIn
                 result = rhs - lhs - borrow
                 arithmetic = true
                 carry = unsigned(rhs) >= unsigned(lhs) + borrow
-                overflow = signedSubOverflow(rhs, lhs + borrow, result)
+                overflow = signedSubOverflowLong(rhs, lhs, borrow)
             }
             8 -> result = lhs and rhs
             9 -> result = lhs xor rhs
-            10 -> { result = lhs - rhs; arithmetic = true; carry = unsigned(lhs) >= unsigned(rhs); overflow = signedSubOverflow(lhs, rhs, result) }
-            11 -> { result = lhs + rhs; arithmetic = true; carry = unsigned(lhs) + unsigned(rhs) > 0xFFFFFFFFL; overflow = signedAddOverflow(lhs, rhs, result) }
+            10 -> { result = lhs - rhs; arithmetic = true; carry = unsigned(lhs) >= unsigned(rhs); overflow = signedSubOverflowLong(lhs, rhs, 0) }
+            11 -> { result = lhs + rhs; arithmetic = true; carry = unsigned(lhs) + unsigned(rhs) > 0xFFFFFFFFL; overflow = signedAddOverflowLong(lhs, rhs, 0) }
             12 -> result = lhs or rhs
             13 -> result = rhs
             14 -> result = lhs and rhs.inv()
@@ -224,7 +224,17 @@ class GbaEmulatorCore(
             return shift(regs[rm], shiftType, amount, byRegister = true)
         }
         val amount = (op ushr 7) and 31
-        if (amount == 0 && shiftType == 0) return Operand2(regs[rm], null)
+        if (amount == 0) {
+            return when (shiftType) {
+                0 -> Operand2(regs[rm], null)
+                1 -> Operand2(0, regs[rm] < 0) // LSR #32
+                2 -> Operand2(if (regs[rm] < 0) -1 else 0, regs[rm] < 0) // ASR #32
+                else -> {
+                    val result = (if (flag(C_FLAG)) Int.MIN_VALUE else 0) or (regs[rm] ushr 1)
+                    Operand2(result, regs[rm] and 1 != 0) // RRX
+                }
+            }
+        }
         return shift(regs[rm], shiftType, amount, byRegister = false)
     }
 
@@ -300,11 +310,15 @@ class GbaEmulatorCore(
             signedResult < Int.MIN_VALUE.toLong() || signedResult > Int.MAX_VALUE.toLong())
     }
 
-    private fun signedAddOverflow(lhs: Int, rhs: Int, result: Int): Boolean =
-        ((lhs xor result) and (rhs xor result.inv())) < 0
+    private fun signedAddOverflowLong(lhs: Int, rhs: Int, carryIn: Int): Boolean {
+        val result = lhs.toLong() + rhs.toLong() + carryIn
+        return result < Int.MIN_VALUE.toLong() || result > Int.MAX_VALUE.toLong()
+    }
 
-    private fun signedSubOverflow(lhs: Int, rhs: Int, result: Int): Boolean =
-        ((lhs xor rhs) and (lhs xor result)) < 0
+    private fun signedSubOverflowLong(lhs: Int, rhs: Int, borrowIn: Int): Boolean {
+        val result = lhs.toLong() - rhs.toLong() - borrowIn
+        return result < Int.MIN_VALUE.toLong() || result > Int.MAX_VALUE.toLong()
+    }
 
     private fun unsigned(value: Int): Long = value.toLong() and 0xFFFFFFFFL
     private fun flag(mask: Int): Boolean = cpsr and mask != 0
