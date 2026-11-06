@@ -13,7 +13,7 @@ data class GbaPaletteResult(
 
 object AssetStudio {
     const val TILE_SIZE = 8
-    private const val MAX_PIXELS = 16 * 1024 * 1024
+    const val MAX_PIXELS = 4 * 1024 * 1024
 
     /** Converts an image to 4bpp tiled data and a BGR555 palette with transparent index 0. */
     fun convertTo4Bpp(bitmap: Bitmap): GbaPaletteResult {
