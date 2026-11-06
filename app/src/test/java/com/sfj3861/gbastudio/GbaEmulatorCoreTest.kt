@@ -85,6 +85,68 @@ class GbaEmulatorCoreTest {
         assertTrue(executed.thumb)
     }
 
+
+    @Test fun storesAndLoadsArmWordThroughEwram() {
+        val core = GbaEmulatorCore(
+            romOf(0xE5801000.toInt(), 0xE5902000.toInt()),
+            initialRegisters = IntArray(16).also {
+                it[0] = 0x02000000
+                it[1] = 0x12345678
+            }
+        )
+        core.step()
+        val state = core.step()
+        assertEquals(0x12345678, state.registers[2])
+        assertFalse(state.halted)
+    }
+
+    @Test fun storesAndLoadsThumbWordThroughIwram() {
+        val rom = ByteArray(0xC0)
+        rom[0] = 0x41
+        rom[1] = 0x60.toByte() // STR r1, [r0]
+        rom[2] = 0x02
+        rom[3] = 0x68 // LDR r2, [r0]
+        val core = GbaEmulatorCore(
+            rom,
+            startInThumb = true,
+            initialRegisters = IntArray(16).also {
+                it[0] = 0x03000000
+                it[1] = 0xCAFEBABE.toInt()
+            }
+        )
+        core.step()
+        val state = core.step()
+        assertEquals(0xCAFEBABE.toInt(), state.registers[2])
+        assertTrue(state.thumb)
+        assertFalse(state.halted)
+    }
+
+    @Test fun executesArmMultiply() {
+        val core = GbaEmulatorCore(
+            romOf(0xE0020190.toInt()), // MUL r2, r0, r1
+            initialRegisters = IntArray(16).also {
+                it[0] = 6
+                it[1] = 7
+            }
+        )
+        val state = core.step()
+        assertEquals(42, state.registers[2])
+        assertFalse(state.halted)
+    }
+
+    @Test fun refusesWritesToRom() {
+        val core = GbaEmulatorCore(
+            romOf(0xE5801000.toInt()), // STR r1, [r0]
+            initialRegisters = IntArray(16).also {
+                it[0] = GbaEmulatorCoreTestBase.ROM_BASE
+                it[1] = 0x12345678
+            }
+        )
+        val state = core.step()
+        assertTrue(state.halted)
+        assertTrue(state.message.contains("solo lectura"))
+    }
+
     private fun romOf(vararg instructions: Int): ByteArray {
         val rom = ByteArray(0xC0)
         instructions.forEachIndexed { index, instruction ->
