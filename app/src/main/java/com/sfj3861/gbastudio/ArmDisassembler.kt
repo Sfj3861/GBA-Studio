@@ -79,7 +79,8 @@ object ArmDisassembler {
                     0 -> "ADD" to "r$rd, r$rs"
                     1 -> "CMP" to "r$rd, r$rs"
                     2 -> "MOV" to "r$rd, r$rs"
-                    else -> ".hword" to "0x%04X".format(x)
+                    else -> if (x and 0xFF87 == 0x4700) "BX" to "r$rs"
+                        else ".hword" to "0x%04X".format(x)
                 }
             }
             x and 0xF800 == 0x4800 -> {
@@ -142,7 +143,6 @@ object ArmDisassembler {
             }
             x and 0xFF87 == 0x4700 -> "BX" to "r${(x ushr 3) and 15}"
             x == 0x46C0 -> "NOP" to ""
-            x == 0xBE00 -> "BKPT" to ""
             else -> ".hword" to "0x%04X".format(x)
         }
         return DisassembledInstruction(address, x, 2, text.first, text.second)
