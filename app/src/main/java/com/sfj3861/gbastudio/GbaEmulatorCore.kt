@@ -12,8 +12,9 @@ data class EmulatorSnapshot(
 
 /**
  * Experimental ARM7TDMI instruction stepper.
- * It implements a focused arithmetic/branch subset, not the complete GBA memory bus,
- * PPU, audio, DMA, timers, interrupts, BIOS or cartridge peripherals.
+ * It supports a limited arithmetic/branch/load-store subset and maps ROM, EWRAM and IWRAM.
+ * It is not a complete ARM7TDMI core or GBA memory bus: BIOS, IO, PPU, audio, DMA,
+ * timers, interrupts, cartridge peripherals and many instruction classes are absent.
  */
 class GbaEmulatorCore(
     rom: ByteArray,
@@ -165,7 +166,12 @@ class GbaEmulatorCore(
             }
             op and 0x0FC000F0 == 0x00000090 -> executeArmMultiply(op, pc)
             op and 0x0C000000 == 0x04000000 -> executeArmSingleTransfer(op, pc)
+            op and 0x0F8000F0 == 0x00800090 -> throw IllegalArgumentException("Multiplicación ARM long todavía no implementada.")
             op and 0x0E000090 == 0x00000090 -> throw IllegalArgumentException("Transferencia ARM halfword/miscelánea todavía no implementada.")
+            op and 0x0FBF0FFF == 0x010F0000 ||
+                op and 0x0FB0FFF0 == 0x0120F000 ||
+                op and 0x0FB0F000 == 0x0320F000 ->
+                throw IllegalArgumentException("Transferencia de estado PSR todavía no implementada.")
             op and 0x0C000000 == 0 -> executeArmDataProcessing(op, pc)
             else -> throw IllegalArgumentException("ARM opcode no implementado: %08X".format(op))
         }
