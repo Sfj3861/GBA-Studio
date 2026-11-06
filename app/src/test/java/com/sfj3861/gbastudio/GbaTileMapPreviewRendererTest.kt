@@ -33,7 +33,7 @@ class GbaTileMapPreviewRendererTest {
 
         assertEquals(512 * 512, pixels.size)
         assertEquals(0, pixels[0])
-        assertEquals(0xFFFF0000.toInt(), pixels[32 * 8 * 512])
+        assertEquals(0xFFFF0000.toInt(), pixels[32 * 8])
         assertEquals(0xFF00FF00.toInt(), pixels[(32 * 8) * 512])
         assertEquals(0xFF0000FF.toInt(), pixels[(32 * 8) * 512 + 32 * 8])
         assertTrue(map.uniqueTileCount == 4)
