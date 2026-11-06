@@ -22,6 +22,8 @@ class GbaEmulatorCore(
     initialRegisters: IntArray? = null
 ) {
     private val memory = ByteArray(0x02000000)
+    private val ewram = ByteArray(256 * 1024)
+    private val iwram = ByteArray(32 * 1024)
     private val regs = IntArray(16)
     private var thumb = startInThumb
     private var steps = 0L
@@ -98,6 +100,27 @@ class GbaEmulatorCore(
                 regs[register] = result
                 setSubFlags(lhs, rhs, 0, result)
             }
+            op and 0xF800 == 0x4800 -> {
+                val destination = (op ushr 8) and 7
+                val address = ((pc + 4) and -4) + ((op and 0xFF) shl 2)
+                regs[destination] = readMemory32(address and -4)
+            }
+            op and 0xF000 == 0x5000 -> executeThumbRegisterTransfer(op)
+            op and 0xE000 == 0x6000 -> executeThumbImmediateTransfer(op)
+            op and 0xF000 == 0x8000 -> {
+                val load = op and 0x0800 != 0
+                val address = regs[(op ushr 3) and 7] + (((op ushr 6) and 31) shl 1)
+                val register = op and 7
+                if (load) regs[register] = readMemory16(address and -2)
+                else writeMemory16(address and -2, regs[register])
+            }
+            op and 0xF000 == 0x9000 -> {
+                val load = op and 0x0800 != 0
+                val register = (op ushr 8) and 7
+                val address = regs[13] + ((op and 0xFF) shl 2)
+                if (load) regs[register] = readMemory32(address and -4)
+                else writeMemory32(address and -4, regs[register])
+            }
             op and 0xF000 == 0xD000 && ((op ushr 8) and 15) < 14 -> {
                 val condition = (op ushr 8) and 15
                 if (conditionPassed(condition)) {
@@ -140,9 +163,146 @@ class GbaEmulatorCore(
                 if (op and (1 shl 24) != 0) regs[14] = pc + 4
                 regs[15] = pc + 8 + displacement
             }
+            op and 0x0FC000F0 == 0x00000090 -> executeArmMultiply(op, pc)
+            op and 0x0C000000 == 0x04000000 -> executeArmSingleTransfer(op, pc)
             op and 0x0C000000 == 0 -> executeArmDataProcessing(op, pc)
             else -> throw IllegalArgumentException("ARM opcode no implementado: %08X".format(op))
         }
+    }
+
+    private fun executeArmMultiply(op: Int, pc: Int) {
+        val accumulate = op and (1 shl 21) != 0
+        val setFlags = op and (1 shl 20) != 0
+        val rd = (op ushr 16) and 15
+        val rn = (op ushr 12) and 15
+        val rs = (op ushr 8) and 15
+        val rm = op and 15
+        require(rd != 15 && rs != 15 && rm != 15 && (!accumulate || rn != 15) && rd != rm) {
+            "Registros no válidos para MUL/MLA ARM7TDMI."
+        }
+        var result = regs[rm] * regs[rs]
+        if (accumulate) result += regs[rn]
+        regs[rd] = result
+        if (setFlags) setNz(result)
+        regs[15] = pc + 4
+    }
+
+    private fun executeArmSingleTransfer(op: Int, pc: Int) {
+        require(op and (1 shl 25) == 0) {
+            "Transferencia ARM con offset de registro todavía no implementada."
+        }
+        val preIndexed = op and (1 shl 24) != 0
+        val addOffset = op and (1 shl 23) != 0
+        val byteTransfer = op and (1 shl 22) != 0
+        val writeBack = op and (1 shl 21) != 0
+        val load = op and (1 shl 20) != 0
+        val rn = (op ushr 16) and 15
+        val rd = (op ushr 12) and 15
+        val base = regs[rn]
+        val offset = op and 0xFFF
+        val adjusted = if (addOffset) base + offset else base - offset
+        val address = if (preIndexed) adjusted else base
+
+        if (load) {
+            regs[rd] = if (byteTransfer) {
+                readMemory8(address)
+            } else {
+                val alignedAddress = address and -4
+                Integer.rotateRight(readMemory32(alignedAddress), (address and 3) * 8)
+            }
+        } else {
+            if (byteTransfer) writeMemory8(address, regs[rd])
+            else writeMemory32(address and -4, regs[rd])
+        }
+        if (!preIndexed || writeBack) regs[rn] = adjusted
+        if (rd != 15 || !load) regs[15] = pc + 4
+        else regs[15] = regs[15] and -4
+    }
+
+    private fun executeThumbRegisterTransfer(op: Int) {
+        val operation = (op ushr 9) and 7
+        val address = regs[(op ushr 3) and 7] + regs[(op ushr 6) and 7]
+        val destination = op and 7
+        when (operation) {
+            0 -> writeMemory32(address and -4, regs[destination])
+            1 -> writeMemory16(address and -2, regs[destination])
+            2 -> writeMemory8(address, regs[destination])
+            3 -> regs[destination] = signExtend(readMemory8(address), 8)
+            4 -> regs[destination] = Integer.rotateRight(readMemory32(address and -4), (address and 3) * 8)
+            5 -> regs[destination] = readMemory16(address and -2)
+            6 -> regs[destination] = readMemory8(address)
+            7 -> regs[destination] = signExtend(readMemory16(address and -2), 16)
+        }
+    }
+
+    private fun executeThumbImmediateTransfer(op: Int) {
+        val byteTransfer = op and 0x1000 != 0
+        val load = op and 0x0800 != 0
+        val offset = (op ushr 6) and 31
+        val address = regs[(op ushr 3) and 7] + if (byteTransfer) offset else offset shl 2
+        val register = op and 7
+        if (load) {
+            regs[register] = if (byteTransfer) readMemory8(address)
+            else Integer.rotateRight(readMemory32(address and -4), (address and 3) * 8)
+        } else {
+            if (byteTransfer) writeMemory8(address, regs[register])
+            else writeMemory32(address and -4, regs[register])
+        }
+    }
+
+    private fun mapMemory(address: Int, size: Int): Pair<ByteArray, Int> {
+        require(size > 0) { "Tamaño de acceso de memoria no válido." }
+        val start = address.toLong() and 0xFFFFFFFFL
+        val end = start + size.toLong()
+        val romBase = ROM_BASE.toLong()
+        val ewramBase = EWRAM_BASE.toLong()
+        val iwramBase = IWRAM_BASE.toLong()
+        return when {
+            start >= romBase && end <= romBase + romSize ->
+                memory to (start - romBase).toInt()
+            start >= ewramBase && end <= ewramBase + ewram.size ->
+                ewram to (start - ewramBase).toInt()
+            start >= iwramBase && end <= iwramBase + iwram.size ->
+                iwram to (start - iwramBase).toInt()
+            else -> throw IllegalArgumentException("Acceso a memoria no implementado: 0x%08X".format(address))
+        }
+    }
+
+    private fun readMemory8(address: Int): Int {
+        val (region, offset) = mapMemory(address, 1)
+        return region[offset].toInt() and 255
+    }
+
+    private fun readMemory16(address: Int): Int {
+        val (region, offset) = mapMemory(address, 2)
+        return (region[offset].toInt() and 255) or ((region[offset + 1].toInt() and 255) shl 8)
+    }
+
+    private fun readMemory32(address: Int): Int {
+        val (region, offset) = mapMemory(address, 4)
+        return (region[offset].toInt() and 255) or
+            ((region[offset + 1].toInt() and 255) shl 8) or
+            ((region[offset + 2].toInt() and 255) shl 16) or
+            ((region[offset + 3].toInt() and 255) shl 24)
+    }
+
+    private fun writeMemory8(address: Int, value: Int) {
+        val (region, offset) = mapMemory(address, 1)
+        region[offset] = value.toByte()
+    }
+
+    private fun writeMemory16(address: Int, value: Int) {
+        val (region, offset) = mapMemory(address, 2)
+        region[offset] = value.toByte()
+        region[offset + 1] = (value ushr 8).toByte()
+    }
+
+    private fun writeMemory32(address: Int, value: Int) {
+        val (region, offset) = mapMemory(address, 4)
+        region[offset] = value.toByte()
+        region[offset + 1] = (value ushr 8).toByte()
+        region[offset + 2] = (value ushr 16).toByte()
+        region[offset + 3] = (value ushr 24).toByte()
     }
 
     private fun executeArmDataProcessing(op: Int, pc: Int) {
