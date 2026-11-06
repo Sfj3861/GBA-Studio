@@ -16,7 +16,16 @@ fun InputStream.readBoundedBytes(maxBytes: Int): ByteArray {
     while (true) {
         val count = read(buffer)
         if (count < 0) break
-        if (count == 0) continue
+        if (count == 0) {
+            val single = read()
+            if (single < 0) break
+            if (total >= maxBytes) {
+                throw IOException("El archivo supera el límite permitido de $maxBytes bytes.")
+            }
+            output.write(single)
+            total++
+            continue
+        }
         if (count > maxBytes - total) {
             throw IOException("El archivo supera el límite permitido de $maxBytes bytes.")
         }
