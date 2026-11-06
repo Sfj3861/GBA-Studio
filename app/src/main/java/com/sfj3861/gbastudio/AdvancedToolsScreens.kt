@@ -124,7 +124,7 @@ fun LinkerScreen() {
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Linker / ROM image builder", style = MaterialTheme.typography.headlineMedium)
-        Text("Empaqueta un binario raw en una imagen GBA y calcula el checksum de cabecera. No enlaza todavía ELF ni resuelve relocaciones.")
+        Text("Empaqueta un binario raw en una imagen GBA. El motor de enlace admite secciones, símbolos y algunas relocaciones, pero esta pantalla todavía ofrece el flujo simplificado de un único binario.")
         Button(onClick = { open.launch(arrayOf("*/*")) }) { Text("Seleccionar binario de código") }
         Text(fileName)
         OutlinedTextField(value = title, onValueChange = { title = it.take(12) }, label = { Text("Título (máx. 12)") }, singleLine = true)
@@ -157,7 +157,7 @@ fun AssetStudioScreen() {
                 .onSuccess { result ->
                     palette = AssetStudio.paletteBytes(result.colors)
                     tiles = result.tiles4bpp
-                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles 8×8: ${result.tileCount}\nColores únicos: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
+                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles 8×8: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
                 }.onFailure { summary = "Error: ${it.message}" }
         }.onFailure { summary = "Error al importar: ${it.message}" }
     }
