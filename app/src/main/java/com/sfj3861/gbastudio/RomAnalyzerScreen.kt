@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.sfj3861.gbastudio.rom.GbaRomHeader
 import com.sfj3861.gbastudio.rom.GbaRomHeaderParser
@@ -34,6 +35,7 @@ fun RomAnalyzerScreen() {
     var selectedName by remember { mutableStateOf<String?>(null) }
     var header by remember { mutableStateOf<GbaRomHeader?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var hexPreview by remember { mutableStateOf<String?>(null) }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -42,23 +44,26 @@ fun RomAnalyzerScreen() {
             selectedName = uri.lastPathSegment ?: "ROM seleccionada"
             try {
                 val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
-                    val buffer = ByteArray(GbaRomHeaderParser.HEADER_SIZE)
+                    val buffer = ByteArray(512)
                     var offset = 0
                     while (offset < buffer.size) {
                         val count = input.read(buffer, offset, buffer.size - offset)
                         if (count < 0) break
                         offset += count
                     }
-                    if (offset < buffer.size) {
+                    if (offset < GbaRomHeaderParser.HEADER_SIZE) {
                         throw IllegalArgumentException("El archivo no contiene una cabecera GBA completa.")
                     }
-                    buffer
+                    val readBytes = buffer.copyOf(offset)
+                    hexPreview = formatHexPreview(readBytes)
+                    readBytes.copyOf(GbaRomHeaderParser.HEADER_SIZE)
                 } ?: throw IllegalStateException("Android no pudo abrir el archivo seleccionado.")
 
                 header = GbaRomHeaderParser.parse(bytes)
                 error = null
             } catch (exception: Exception) {
                 header = null
+                hexPreview = null
                 error = exception.message ?: "No se pudo analizar el archivo."
             }
         }
@@ -78,7 +83,7 @@ fun RomAnalyzerScreen() {
                 Text("Seleccionar archivo")
             }
             if (header != null) {
-                OutlinedButton(onClick = { header = null; error = null; selectedName = null }) {
+                OutlinedButton(onClick = { header = null; hexPreview = null; error = null; selectedName = null }) {
                     Text("Limpiar")
                 }
             }
@@ -109,6 +114,14 @@ fun RomAnalyzerScreen() {
                 }
             }
         }
+        hexPreview?.let { dump ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Vista hexadecimal · primeros bytes", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(dump, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         if (header == null && error == null) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Text(
@@ -126,5 +139,17 @@ private fun HeaderValue(label: String, value: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun formatHexPreview(bytes: ByteArray): String {
+    return bytes.indices.step(16).joinToString("\n") { offset ->
+        val end = minOf(offset + 16, bytes.size)
+        val hex = (offset until end).joinToString(" ") { index -> "%02X".format(bytes[index].toInt() and 0xFF) }
+        val ascii = (offset until end).joinToString("") { index ->
+            val value = bytes[index].toInt() and 0xFF
+            if (value in 32..126) value.toChar().toString() else "."
+        }
+        "%08X  %-47s  |%s|".format(offset, hex, ascii)
     }
 }
