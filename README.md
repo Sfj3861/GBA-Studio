@@ -24,7 +24,7 @@ The initial foundation includes:
 - Responsive navigation for compact and tablet layouts.
 - Introductory tutorial screen.
 - Persistent local project manager: create, list, open, rename and delete projects.
-- Basic in-app source editor for C/C++ and text files, new file creation, manual save and delayed autosave.
+- Basic in-app source editor for C/C++ and text files, lightweight syntax highlighting, new file creation, manual save and delayed autosave.
 - ZIP project import/export through Android's system document picker, with path traversal and uncompressed-size checks.
 - Starter C project template with `src/main.c`, `assets/`, `README.md` and `project.json`.
 - Local GBA ROM header analyzer using Android's document picker.
