@@ -12,11 +12,11 @@ object CCodeVisualTransformation : VisualTransformation {
     private data class Token(val start: Int, val end: Int, val color: Color)
 
     private val patterns = listOf(
-        Regex("""(?m)//.*$|/\\*[\\s\\S]*?\\*/""") to Color(0xFF7FAF83),
-        Regex("""\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'""") to Color(0xFFD7A86E),
-        Regex("""\\b(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|bool|class|namespace|using|true|false|nullptr)\\b""") to Color(0xFF83B7F0),
-        Regex("""\\b(?:0x[0-9a-fA-F]+|[0-9]+(?:\\.[0-9]+)?)\\b""") to Color(0xFFD6A5E8),
-        Regex("""(?m)^\\s*#.*$""") to Color(0xFFE0B96D)
+        Regex("""(?m)//.*$|/\*[\s\S]*?\*/""") to Color(0xFF7FAF83),
+        Regex("""("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')""") to Color(0xFFD7A86E),
+        Regex("""\b(?:auto|break|case|char|const|continue|default|do|double|else|enum|extern|float|for|goto|if|inline|int|long|register|restrict|return|short|signed|sizeof|static|struct|switch|typedef|union|unsigned|void|volatile|while|bool|class|namespace|using|true|false|nullptr)\b""") to Color(0xFF83B7F0),
+        Regex("""\b(?:0x[0-9a-fA-F]+|[0-9]+(?:\.[0-9]+)?)\b""") to Color(0xFFD6A5E8),
+        Regex("""(?m)^\s*#.*$""") to Color(0xFFE0B96D)
     )
 
     override fun filter(text: AnnotatedString): TransformedText {
