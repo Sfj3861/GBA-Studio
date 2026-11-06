@@ -31,7 +31,7 @@ class GbaLinkerTest {
         assertTrue(GbaRomHeader.hasLogo(result.image))
         assertTrue(logo.contentEquals(result.image.copyOfRange(0x04, 0xA0)))
         assertTrue(GbaRomHeader.hasValidComplement(result.image))
-        assertFalse(result.warnings.any { it.contains("logo") })
+        assertTrue(result.warnings.any { it.contains("sin verificarlo") })
     }
 
     @Test fun resolvesAbsoluteSymbolRelocationIntoRamSection() {
