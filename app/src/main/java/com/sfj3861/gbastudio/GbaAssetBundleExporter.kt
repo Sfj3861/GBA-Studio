@@ -113,6 +113,9 @@ object GbaAssetBundleExporter {
         extern const uint8_t gba_asset_tiles[${map.uniqueTiles4bpp.size}];
         extern const uint16_t gba_asset_palette[${assets.colors.size}];
         extern const uint16_t gba_asset_map[${map.entries.size}];
+
+        #define GBA_BG_SCREEN_BASE_BLOCK 16
+        void gba_asset_load_bg0(void);
     """.trimIndent() + "\n"
 
     private fun cSource(assets: GbaPaletteResult, map: GbaTileMapResult): String = buildString {
@@ -125,7 +128,37 @@ object GbaAssetBundleExporter {
         append("};\n\n")
         append("const uint16_t gba_asset_map[${map.entries.size}] = {\n")
         appendArray(map.entries.map { "0x%04X".format(it) }, valuesPerLine = 8)
-        append("};\n")
+        append("};\n\n")
+        append(
+            """
+            void gba_asset_load_bg0(void) {
+                volatile uint16_t *vram = (volatile uint16_t *)0x06000000;
+                volatile uint16_t *bgPalette = (volatile uint16_t *)0x05000000;
+                volatile uint16_t *bg0cnt = (volatile uint16_t *)0x04000008;
+                volatile uint16_t *dispcnt = (volatile uint16_t *)0x04000000;
+
+                for (unsigned int i = 0; i < sizeof(gba_asset_tiles) / 2; ++i) {
+                    const unsigned int low = gba_asset_tiles[i * 2];
+                    const unsigned int high = gba_asset_tiles[i * 2 + 1];
+                    vram[i] = (uint16_t)(low | (high << 8));
+                }
+
+                for (unsigned int i = 0; i < 16; ++i) {
+                    bgPalette[GBA_BG_PALETTE_BANK * 16 + i] =
+                        (i < ${assets.colors.size}) ? gba_asset_palette[i] : 0;
+                }
+
+                volatile uint16_t *screenblock =
+                    vram + (GBA_BG_SCREEN_BASE_BLOCK * 1024);
+                for (unsigned int i = 0; i < GBA_BG_MAP_ENTRY_COUNT; ++i) {
+                    screenblock[i] = gba_asset_map[i];
+                }
+
+                *bg0cnt = (GBA_BG_SCREEN_BASE_BLOCK << 8) | (GBA_BG_SIZE_CODE << 14);
+                *dispcnt = (uint16_t)(*dispcnt | (1u << 8));
+            }
+            """.trimIndent()
+        )
     }
 
     private fun StringBuilder.appendArray(values: List<String>, valuesPerLine: Int = 12) {
@@ -181,7 +214,8 @@ object GbaAssetBundleExporter {
         - asset.json: machine-readable metadata.
 
         The map uses palette bank ${map.paletteBank}. Tile indices in background.map address tiles.4bpp.
-        The bundle does not include VRAM upload code, BG control register setup, DMA code,
-        or a game-specific screen initialization routine. Integrate those in your GBA project.
+        Call gba_asset_load_bg0() from asset.c to copy tiles, palette and map to VRAM,
+        configure BG0 and enable it. This routine uses screenbase block 16 and character base 0.
+        It does not configure display mode, blending, windowing, DMA, or game-specific logic.
     """.trimIndent() + "\n"
 }
