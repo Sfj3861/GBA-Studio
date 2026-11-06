@@ -1,6 +1,11 @@
 package com.sfj3861.gbastudio
 
 import android.content.Context
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -66,6 +71,73 @@ class ProjectRepository(context: Context) {
         requireOwned(project)
         check(project.directory.deleteRecursively()) { "No se pudo eliminar la carpeta del proyecto." }
         writeIndex(list().filterNot { it.id == project.id })
+    }
+
+    fun exportProject(project: GbaProject, output: OutputStream) {
+        requireOwned(project)
+        ZipOutputStream(output).use { zip ->
+            project.directory.walkTopDown().filter { it.isFile }.forEach { file ->
+                val relative = file.relativeTo(project.directory).invariantSeparatorsPath
+                require(!relative.startsWith("/") && !relative.split("/").contains(".."))
+                zip.putNextEntry(ZipEntry(relative))
+                file.inputStream().use { input -> input.copyTo(zip) }
+                zip.closeEntry()
+            }
+        }
+    }
+
+    fun importProject(input: InputStream): GbaProject {
+        val id = UUID.randomUUID().toString()
+        val dir = File(root, id)
+        check(dir.mkdirs()) { "No se pudo crear el proyecto importado." }
+        try {
+            var entries = 0
+            var totalBytes = 0L
+            ZipInputStream(input).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    entries++
+                    require(entries <= 2000) { "El archivo contiene demasiados elementos." }
+                    val name = entry.name
+                    require(name.isNotBlank() && !name.startsWith("/") && !name.contains("\\\\") &&
+                        !name.split("/").contains("..")) { "El archivo ZIP contiene una ruta no válida." }
+                    val target = File(dir, name).canonicalFile
+                    require(target.path.startsWith(dir.canonicalPath + File.separator)) {
+                        "El archivo ZIP intenta salir de la carpeta del proyecto."
+                    }
+                    if (entry.isDirectory) {
+                        check(target.mkdirs() || target.isDirectory) { "No se pudo crear una carpeta importada." }
+                    } else {
+                        check(target.parentFile?.let { it.isDirectory || it.mkdirs() } ?: false) {
+                            "No se pudo crear una carpeta importada."
+                        }
+                        target.outputStream().use { output ->
+                            val buffer = ByteArray(8192)
+                            while (true) {
+                                val count = zip.read(buffer)
+                                if (count < 0) break
+                                totalBytes += count
+                                require(totalBytes <= 32L * 1024L * 1024L) {
+                                    "El proyecto supera el límite de importación de 32 MB."
+                                }
+                                output.write(buffer, 0, count)
+                            }
+                        }
+                    }
+                    zip.closeEntry()
+                }
+            }
+            val manifest = File(dir, "project.json")
+            require(manifest.isFile) { "El ZIP no contiene project.json; no parece un proyecto GBA Studio." }
+            val metadata = JSONObject(manifest.readText(Charsets.UTF_8))
+            val name = metadata.optString("name").trim().ifBlank { "Proyecto importado" }.take(40)
+            val project = GbaProject(id, name, dir, System.currentTimeMillis())
+            writeIndex(list() + project)
+            return project
+        } catch (e: Exception) {
+            dir.deleteRecursively()
+            throw e
+        }
     }
 
     fun createTextFile(project: GbaProject, relativePath: String) {
