@@ -83,7 +83,10 @@ object ArmDisassembler {
                 val offset = (x and 0xFF) shl 2
                 (if (load) "LDR" else "STR") to "r${(x ushr 8) and 7}, [SP, #$offset]"
             }
-            x and 0xF000 == 0x5000 -> "LOAD/STORE (reg)" to "op=0x${(x ushr 9) and 7}, r${x and 7}, [r${(x ushr 3) and 7}, r${(x ushr 6) and 7}]"
+            x and 0xF000 == 0x5000 -> {
+                val names = arrayOf("STR", "STRH", "STRB", "LDSB", "LDR", "LDRH", "LDRB", "LDSH")
+                names[(x ushr 9) and 7] to "r${x and 7}, [r${(x ushr 3) and 7}, r${(x ushr 6) and 7}]"
+            }
             x and 0xFF00 == 0x4700 -> "BX" to "r${(x ushr 3) and 15}"
             x == 0x46C0 -> "NOP" to ""
             x == 0xBE00 -> "BKPT" to ""
@@ -94,7 +97,8 @@ object ArmDisassembler {
 
     fun decodeArm(op: Int, address: Int): DisassembledInstruction {
         val cond = (op ushr 28) and 0xF
-        val suffix = listOf("EQ","NE","CS","CC","MI","PL","VS","VC","HI","LS","GE","LT","GT","LE","","")[cond]
+        if (cond == 15) return DisassembledInstruction(address, op, 4, ".word", "0x%08X".format(op))
+        val suffix = listOf("EQ","NE","CS","CC","MI","PL","VS","VC","HI","LS","GE","LT","GT","LE","", "")[cond]
         val pc = address + 8
         val decoded = when {
             op and 0x0FFFFFF0 == 0x012FFF10 -> "BX$suffix" to "r${op and 15}"
@@ -108,7 +112,11 @@ object ArmDisassembler {
                 val code = (op ushr 21) and 15
                 val rd = (op ushr 12) and 15
                 val rn = (op ushr 16) and 15
-                val operand = if (op and (1 shl 25) != 0) "#${op and 0xFF}" else "r${op and 15}"
+                val operand = if (op and (1 shl 25) != 0) {
+                    val immediate = op and 0xFF
+                    val rotation = ((op ushr 8) and 15) * 2
+                    "#0x%08X".format(Integer.rotateRight(immediate, rotation))
+                } else "r${op and 15}"
                 names[code] + suffix + (if (op and (1 shl 20) != 0) "S" else "") to
                     (if (code == 13 || code == 15) "r$rd, $operand" else "r$rd, r$rn, $operand")
             }
