@@ -9,7 +9,34 @@ class ArmDisassemblerTest {
         val decoded = ArmDisassembler.decodeThumb(0x2007, 0x08000000)
         assertEquals("MOVS", decoded.mnemonic)
         assertEquals("r0, #7", decoded.operands)
+    
+    @Test fun alignsThumbPcRelativeLiteralAddress() {
+        val decoded = ArmDisassembler.decodeThumb(0x4800, 0x08000002)
+        assertEquals("LDR", decoded.mnemonic)
+        assertTrue(decoded.operands.endsWith("=0x08000004"))
     }
+
+    @Test fun decodesArmMultiplyAndMultiplyAccumulate() {
+        val mul = ArmDisassembler.decodeArm(0xE0020190.toInt(), 0x08000000)
+        val mla = ArmDisassembler.decodeArm(0xE0223190.toInt(), 0x08000000)
+        assertEquals("MUL", mul.mnemonic)
+        assertEquals("r2, r0, r1", mul.operands)
+        assertEquals("MLA", mla.mnemonic)
+        assertEquals("r2, r0, r1, r3", mla.operands)
+    }
+
+    @Test fun doesNotAppendSetFlagsSuffixToArmTestInstruction() {
+        val decoded = ArmDisassembler.decodeArm(0xE3100001.toInt(), 0x08000000)
+        assertEquals("TST", decoded.mnemonic)
+        assertEquals("r0, #0x00000001", decoded.operands)
+    }
+
+    @Test fun rejectsReservedThumbBxVariantAsData() {
+        val decoded = ArmDisassembler.decodeThumb(0x4780, 0x08000000)
+        assertEquals(".hword", decoded.mnemonic)
+    }
+
+}
 
     @Test fun decodesArmBranch() {
         val decoded = ArmDisassembler.decodeArm(0xEA000000.toInt(), 0x08000000)
