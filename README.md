@@ -23,6 +23,8 @@ The initial foundation includes:
 - Kotlin and Jetpack Compose application shell.
 - Responsive navigation for compact and tablet layouts.
 - Introductory tutorial screen.
+- Local GBA ROM header analyzer using Android's document picker.
+- Header metadata extraction and checksum validation with JVM unit tests.
 - Placeholder module screens that clearly identify planned functionality.
 - CMake/NDK native library and JNI bootstrap function.
 - Android minimum SDK 29, Java 17 and compile SDK 35.
