@@ -7,6 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+
+# Avoid spending runners on obsolete commits when several files are pushed in sequence.
+concurrency:
+  group: gba-studio-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   assemble-debug:
     runs-on: ubuntu-latest
