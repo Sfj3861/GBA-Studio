@@ -49,7 +49,7 @@ object ArmDisassembler {
                 names[top] to "r${x and 7}, r${(x ushr 3) and 7}, #${(x ushr 6) and 31}"
             }
             x and 0xF800 == 0x4800 -> {
-                val target = ((pc + 2) and -4) + ((x and 0xFF) shl 2)
+                val target = (pc and -4) + ((x and 0xFF) shl 2)
                 "LDR" to "r${(x ushr 8) and 7}, [PC, #${(x and 0xFF) shl 2}] ; =0x%08X".format(target)
             }
             x and 0xF000 == 0xD000 && (x ushr 8 and 0xF) < 0xE -> {
@@ -87,7 +87,7 @@ object ArmDisassembler {
                 val names = arrayOf("STR", "STRH", "STRB", "LDSB", "LDR", "LDRH", "LDRB", "LDSH")
                 names[(x ushr 9) and 7] to "r${x and 7}, [r${(x ushr 3) and 7}, r${(x ushr 6) and 7}]"
             }
-            x and 0xFF00 == 0x4700 -> "BX" to "r${(x ushr 3) and 15}"
+            x and 0xFF87 == 0x4700 -> "BX" to "r${(x ushr 3) and 15}"
             x == 0x46C0 -> "NOP" to ""
             x == 0xBE00 -> "BKPT" to ""
             else -> ".hword" to "0x%04X".format(x)
@@ -107,6 +107,11 @@ object ArmDisassembler {
                 (if (op and (1 shl 24) != 0) "BL$suffix" else "B$suffix") to "0x%08X".format(pc + disp)
             }
             op and 0x0C000000 == 0x04000000 -> decodeArmTransfer(op, suffix)
+            op and 0x0FC000F0 == 0x00000090 -> decodeArmMultiply(op, suffix)
+            op and 0x0E000090 == 0x00000090 -> ".word" to "0x%08X".format(op)
+            op and 0x0FBF0FFF == 0x010F0000 ||
+                op and 0x0FB0FFF0 == 0x0120F000 ||
+                op and 0x0FB0F000 == 0x0320F000 -> ".word" to "0x%08X".format(op)
             op and 0x0C000000 == 0 -> {
                 val names = arrayOf("AND","EOR","SUB","RSB","ADD","ADC","SBC","RSC","TST","TEQ","CMP","CMN","ORR","MOV","BIC","MVN")
                 val code = (op ushr 21) and 15
@@ -117,12 +122,28 @@ object ArmDisassembler {
                     val rotation = ((op ushr 8) and 15) * 2
                     "#0x%08X".format(Integer.rotateRight(immediate, rotation))
                 } else "r${op and 15}"
-                names[code] + suffix + (if (op and (1 shl 20) != 0) "S" else "") to
-                    (if (code == 13 || code == 15) "r$rd, $operand" else "r$rd, r$rn, $operand")
+                val testOnly = code in 8..11
+                names[code] + suffix + (if (!testOnly && op and (1 shl 20) != 0) "S" else "") to
+                    when {
+                        testOnly -> "r$rn, $operand"
+                        code == 13 || code == 15 -> "r$rd, $operand"
+                        else -> "r$rd, r$rn, $operand"
+                    }
             }
             else -> ".word" to "0x%08X".format(op)
         }
         return DisassembledInstruction(address, op, 4, decoded.first, decoded.second)
+    }
+
+    private fun decodeArmMultiply(op: Int, suffix: String): Pair<String, String> {
+        val accumulate = op and (1 shl 21) != 0
+        val setFlags = op and (1 shl 20) != 0
+        val rd = (op ushr 16) and 15
+        val rn = (op ushr 12) and 15
+        val rs = (op ushr 8) and 15
+        val rm = op and 15
+        val mnemonic = (if (accumulate) "MLA" else "MUL") + suffix + if (setFlags) "S" else ""
+        return mnemonic to if (accumulate) "r$rd, r$rm, r$rs, r$rn" else "r$rd, r$rm, r$rs"
     }
 
     private fun decodeArmTransfer(op: Int, suffix: String): Pair<String, String> {
