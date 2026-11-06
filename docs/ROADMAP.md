@@ -15,7 +15,8 @@
 
 ## Milestone 2 — Code and compiler
 - [x] Basic C/C++/text editor with file creation and autosave
-- [ ] Syntax highlighting, code completion and diagnostics
+- [x] Basic C/C++ syntax highlighting
+- [ ] Code completion and compiler diagnostics
 - [ ] Local ARM/Thumb cross-toolchain integration
 - [ ] GBA linker script and startup/runtime support
 - [ ] Build output, diagnostics and reproducible builds
