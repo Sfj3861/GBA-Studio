@@ -41,7 +41,8 @@
 - [ ] Tilemap editor and preview
 - [ ] Sprite/OAM editor and animation timeline
 - [ ] Audio conversion pipeline
-- [ ] Palette optimization and dithering
+- [x] Basic deterministic 15-color palette reduction for 4bpp assets
+- [ ] Dithering and advanced palette optimization
 - [ ] Source project compatibility report and porting helpers
 
 ## Milestone 5 — Emulation and debugging
