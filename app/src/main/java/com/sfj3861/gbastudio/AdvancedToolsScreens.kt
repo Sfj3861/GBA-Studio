@@ -40,6 +40,7 @@ fun DisassemblerScreen() {
     var label by remember { mutableStateOf("Ninguna ROM seleccionada") }
     var thumb by remember { mutableStateOf(false) }
     var base by remember { mutableStateOf("080000C0") }
+    var skipHeader by remember { mutableStateOf(true) }
     var rows by remember { mutableStateOf(emptyList<DisassembledInstruction>()) }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -56,11 +57,15 @@ fun DisassemblerScreen() {
             Text("Modo Thumb")
             Switch(checked = thumb, onCheckedChange = { thumb = it; rows = emptyList() })
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Saltar cabecera GBA (0xC0)")
+            Switch(checked = skipHeader, onCheckedChange = { skipHeader = it; rows = emptyList() })
+        }
         OutlinedTextField(value = base, onValueChange = { base = it; rows = emptyList() }, label = { Text("Dirección base (hex)") }, singleLine = true)
         Button(enabled = bytes != null, onClick = {
             val start = base.toLongOrNull(16)?.toInt() ?: 0x08000000
             val source = bytes!!
-            val offset = if (source.size > 0xC0) 0xC0 else 0
+            val offset = if (skipHeader && source.size >= 0xC0) 0xC0 else 0
             rows = ArmDisassembler.decode(source.copyOfRange(offset, minOf(source.size, offset + 4096)), start, thumb).take(512)
         }) { Text("Desensamblar") }
         if (rows.isNotEmpty()) {
@@ -152,7 +157,7 @@ fun LinkerScreen() {
             runCatching {
                 val result = GbaLinker.linkRawSections(listOf(GbaSection("code.bin", input!!)), title, gameCode, maker, nintendoLogo = logo)
                 output = result.image
-                report = "Imagen: ${result.image.size} bytes\n" + result.sections.joinToString("\n") { "${it.name}: 0x${it.address.toString(16).uppercase()} · ${it.size} bytes" } + "\n" + result.warnings.joinToString("\n")
+                val entry = (result.image[0].toLong() and 255) or ((result.image[1].toLong() and 255) shl 8) or ((result.image[2].toLong() and 255) shl 16) or ((result.image[3].toLong() and 255) shl 24)\n                report = "Imagen: ${result.image.size} bytes\nPunto de entrada: 0x%08X".format(0x08000008L + ((entry and 0x00FFFFFFL) shl 2)) + "\nChecksum de cabecera: ${if (GbaRomHeader.hasValidComplement(result.image)) "correcto" else "incorrecto"}\n" + result.sections.joinToString("\n") { "${it.name}: 0x${it.address.toString(16).uppercase()} · ${it.size} bytes · archivo +0x${it.fileOffset.toString(16).uppercase()}" } + "\n" + result.warnings.joinToString("\n")
             }.onFailure { report = "Error: ${it.message}" }
         }) { Text("Construir imagen ROM") }
         if (output != null) OutlinedButton(onClick = { save.launch("game-experimental.gba") }) { Text("Exportar .gba experimental") }
@@ -226,6 +231,7 @@ fun EmulatorScreen() {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("PC: 0x%08X".format(state.pc), fontFamily = FontFamily.Monospace)
                     Text("Modo: ${if (state.thumb) "Thumb" else "ARM"} · Pasos: ${state.steps}")
+                    Text("CPSR: 0x%08X".format(state.cpsr), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     Text("Estado: ${if (state.halted) "Detenido" else "Activo"}")
                     state.registers.forEachIndexed { index, value ->
                         Text("R${index.toString().padStart(2, '0')}: 0x%08X".format(value), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
