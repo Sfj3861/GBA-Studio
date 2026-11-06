@@ -27,6 +27,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.delay
 
 @Composable
 fun DisassemblerScreen() {
@@ -354,36 +356,112 @@ fun AssetStudioScreen() {
 @Composable
 fun EmulatorScreen() {
     val context = LocalContext.current
+    var romData by remember { mutableStateOf<ByteArray?>(null) }
     var core by remember { mutableStateOf<GbaEmulatorCore?>(null) }
     var snapshot by remember { mutableStateOf<EmulatorSnapshot?>(null) }
+    var running by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Carga una ROM GBA para iniciar la prueba de CPU.") }
-    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use { it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE) } ?: error("No se pudo leer la ROM.")
-        }.onSuccess { data ->
-            runCatching { GbaEmulatorCore(data) }.onSuccess {
-                core = it; snapshot = it.snapshot(); status = "ROM cargada: ${data.size} bytes"
-            }.onFailure { status = "No se pudo iniciar: ${it.message}" }
-        }.onFailure { status = "Error: ${it.message}" }
-    }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Emulador experimental", style = MaterialTheme.typography.headlineMedium)
-        Text("Esta primera etapa es un intérprete de instrucciones ARM/Thumb para depuración paso a paso. Todavía no reproduce vídeo, audio, temporizadores, DMA ni periféricos GBA; no es aún un emulador completo.")
-        Button(onClick = { open.launch(arrayOf("*/*")) }) { Text("Abrir ROM GBA") }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(enabled = core != null, onClick = { snapshot = core?.step(); status = snapshot?.message ?: status }) { Text("Un paso") }
-            OutlinedButton(enabled = core != null, onClick = { repeat(100) { snapshot = core?.step() }; status = snapshot?.message ?: status }) { Text("100 pasos") }
+
+    LaunchedEffect(running, core) {
+        val activeCore = core
+        if (running && activeCore != null) {
+            while (true) {
+                var latest = activeCore.snapshot()
+                repeat(250) {
+                    if (!latest.halted) latest = activeCore.step()
+                }
+                snapshot = latest
+                if (latest.halted) {
+                    running = false
+                    status = latest.message
+                    break
+                }
+                delay(16)
+            }
         }
-        Text(status, color = MaterialTheme.colorScheme.secondary)
+    }
+
+    val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            running = false
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use {
+                    it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE)
+                } ?: error("No se pudo leer la ROM.")
+            }.onSuccess { data ->
+                runCatching { GbaEmulatorCore(data) }.onSuccess { newCore ->
+                    romData = data
+                    core = newCore
+                    snapshot = newCore.snapshot()
+                    status = "ROM cargada: \${data.size} bytes"
+                }.onFailure {
+                    romData = null
+                    core = null
+                    snapshot = null
+                    status = "No se pudo iniciar: \${it.message}"
+                }
+            }.onFailure {
+                romData = null
+                core = null
+                snapshot = null
+                status = "Error al importar: \${it.message}"
+            }
+        }
+    }
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Emulador experimental", style = MaterialTheme.typography.headlineMedium)
+        Text("Stepper ARM7TDMI parcial para depuración. Puede ejecutar algunas instrucciones aritméticas, saltos y accesos ROM/EWRAM/IWRAM; no emula vídeo, sonido, BIOS ni periféricos GBA.")
+        Button(onClick = { running = false; open.launch(arrayOf("*/*")) }) { Text("Abrir ROM GBA") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                enabled = core != null && snapshot?.halted == false && !running,
+                onClick = { snapshot = core?.step(); status = snapshot?.message ?: status }
+            ) { Text("Un paso") }
+            OutlinedButton(
+                enabled = core != null && snapshot?.halted == false && !running,
+                onClick = {
+                    repeat(100) {
+                        if (snapshot?.halted != true) snapshot = core?.step()
+                    }
+                    status = snapshot?.message ?: status
+                }
+            ) { Text("100 pasos") }
+            OutlinedButton(
+                enabled = core != null && snapshot?.halted == false,
+                onClick = { running = !running }
+            ) { Text(if (running) "Pausar" else "Ejecutar") }
+        }
+        OutlinedButton(
+            enabled = romData != null,
+            onClick = {
+                running = false
+                runCatching { GbaEmulatorCore(romData!!) }
+                    .onSuccess {
+                        core = it
+                        snapshot = it.snapshot()
+                        status = "CPU reiniciada desde el punto de entrada."
+                    }
+                    .onFailure { status = "No se pudo reiniciar: \${it.message}" }
+            }
+        ) { Text("Reiniciar CPU") }
+
+        Text(
+            if (running) "Ejecución continua: 250 instrucciones por ciclo de interfaz" else status,
+            color = MaterialTheme.colorScheme.secondary
+        )
         snapshot?.let { state ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("PC: 0x%08X".format(state.pc), fontFamily = FontFamily.Monospace)
-                    Text("Modo: ${if (state.thumb) "Thumb" else "ARM"} · Pasos: ${state.steps}")
+                    Text("Modo: \${if (state.thumb) "Thumb" else "ARM"} · Pasos: \${state.steps}")
                     Text("CPSR: 0x%08X".format(state.cpsr), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                    Text("Estado: ${if (state.halted) "Detenido" else "Activo"}")
+                    Text("Estado: \${if (state.halted) "Detenido" else if (running) "Ejecutando" else "En pausa"}")
                     state.registers.forEachIndexed { index, value ->
-                        Text("R${index.toString().padStart(2, '0')}: 0x%08X".format(value), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                        Text("R\${index.toString().padStart(2, '0')}: 0x%08X".format(value), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     }
                 }
             }
