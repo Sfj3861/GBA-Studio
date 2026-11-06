@@ -165,6 +165,7 @@ class GbaEmulatorCore(
             }
             op and 0x0FC000F0 == 0x00000090 -> executeArmMultiply(op, pc)
             op and 0x0C000000 == 0x04000000 -> executeArmSingleTransfer(op, pc)
+            op and 0x0E000090 == 0x00000090 -> throw IllegalArgumentException("Transferencia ARM halfword/miscelánea todavía no implementada.")
             op and 0x0C000000 == 0 -> executeArmDataProcessing(op, pc)
             else -> throw IllegalArgumentException("ARM opcode no implementado: %08X".format(op))
         }
@@ -198,6 +199,8 @@ class GbaEmulatorCore(
         val load = op and (1 shl 20) != 0
         val rn = (op ushr 16) and 15
         val rd = (op ushr 12) and 15
+        require(!(rn == 15 && (!preIndexed || writeBack))) { "Writeback con PC como base no soportado." }
+        require(!(load && rd == rn && (!preIndexed || writeBack))) { "LDR con writeback sobre el mismo registro base no soportado." }
         val base = regs[rn]
         val offset = op and 0xFFF
         val adjusted = if (addOffset) base + offset else base - offset
@@ -288,17 +291,20 @@ class GbaEmulatorCore(
 
     private fun writeMemory8(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 1)
+        require(region !== memory) { "La región ROM es de solo lectura." }
         region[offset] = value.toByte()
     }
 
     private fun writeMemory16(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 2)
+        require(region !== memory) { "La región ROM es de solo lectura." }
         region[offset] = value.toByte()
         region[offset + 1] = (value ushr 8).toByte()
     }
 
     private fun writeMemory32(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 4)
+        require(region !== memory) { "La región ROM es de solo lectura." }
         region[offset] = value.toByte()
         region[offset + 1] = (value ushr 8).toByte()
         region[offset + 2] = (value ushr 16).toByte()
