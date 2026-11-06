@@ -233,7 +233,6 @@ fun EmulatorScreen() {
                     Text("PC: 0x%08X".format(state.pc), fontFamily = FontFamily.Monospace)
                     Text("Modo: ${if (state.thumb) "Thumb" else "ARM"} · Pasos: ${state.steps}")
                     Text("CPSR: 0x%08X".format(state.cpsr), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
-                    Text("CPSR: 0x%08X".format(state.cpsr), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     Text("Estado: ${if (state.halted) "Detenido" else "Activo"}")
                     state.registers.forEachIndexed { index, value ->
                         Text("R${index.toString().padStart(2, '0')}: 0x%08X".format(value), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
