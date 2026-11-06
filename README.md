@@ -23,13 +23,15 @@ The initial foundation includes:
 - Kotlin and Jetpack Compose application shell.
 - Responsive navigation for compact and tablet layouts.
 - Introductory tutorial screen.
+- Persistent local project manager: create, list, open the project file tree, rename and delete projects.
+- Starter C project template with `src/main.c`, `assets/`, `README.md` and `project.json`.
 - Local GBA ROM header analyzer using Android's document picker.
 - Header metadata extraction and checksum validation with JVM unit tests.
 - Placeholder module screens that clearly identify planned functionality.
 - CMake/NDK native library and JNI bootstrap function.
 - Android minimum SDK 29, Java 17 and compile SDK 35.
 
-**Important:** compiler, ROM analyzer, decompiler, porting tools, asset editors, emulator and ChatGPT API connection are not implemented yet. The current UI is a foundation, not a finished IDE.
+**Important:** the local project manager and ROM header analyzer are implemented as initial tools. The GBA compiler, decompiler, porting tools, asset editors, emulator and ChatGPT API connection are not implemented yet. The current UI is a foundation, not a finished IDE.
 
 ## Build requirements
 
