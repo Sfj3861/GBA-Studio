@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CppDiagnosticsTest {
     @Test fun findsUnclosedBrace() {
-        val results = CppDiagnostics.analyze("int main(void) {\\n return 0;")
+        val results = CppDiagnostics.analyze("int main(void) {\n return 0;")
         assertTrue(results.any { it.severity == CodeDiagnostic.Severity.ERROR && it.message.contains("llave") })
     }
 
@@ -21,7 +21,7 @@ class CppDiagnosticsTest {
     }
 
     @Test fun ignoresBracesInsideMultilineBlockComments() {
-        val results = CppDiagnostics.analyze("int main() {\\n/* } ) ]\\n still comment { */\\nreturn 0;\\n}")
+        val results = CppDiagnostics.analyze("int main() {\n/* } ) ]\n still comment { */\nreturn 0;\n}")
         assertFalse(results.any { it.message.contains("llave") || it.message.contains("paréntesis") || it.message.contains("corchete") })
     }
 
