@@ -24,7 +24,8 @@
 
 ## Milestone 3 — ROM inspection
 - [x] ROM header parser and validation (metadata fields and header checksum)
-- [ ] Hex viewer and section map
+- [x] Initial read-only hex preview (first 512 bytes)
+- [ ] Full paged hex viewer and ROM section map
 - [ ] ARM/Thumb disassembly
 - [ ] Symbols, cross-references and function analysis
 - [ ] Export analysis reports
