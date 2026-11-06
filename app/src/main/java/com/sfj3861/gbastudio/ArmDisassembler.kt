@@ -9,7 +9,11 @@ data class DisassembledInstruction(
 ) {
     fun formatted(): String = "%08X  %s  %s".format(
         address.toLong() and 0xFFFFFFFFL,
-        if (width == 2) "%04X".format(opcode and 0xFFFF) else "%08X".format(opcode),
+        when (width) {
+            1 -> "%02X".format(opcode and 0xFF)
+            2 -> "%04X".format(opcode and 0xFFFF)
+            else -> "%08X".format(opcode)
+        },
         listOf(mnemonic, operands).filter { it.isNotBlank() }.joinToString(" ")
     )
 }
@@ -21,12 +25,23 @@ object ArmDisassembler {
         var offset = 0
         while (offset < bytes.size) {
             if (thumb) {
-                if (offset + 1 >= bytes.size) break
+                if (offset + 1 >= bytes.size) {
+                    val value = bytes[offset].toInt() and 255
+                    result += DisassembledInstruction(baseAddress + offset, value, 1, ".byte", "0x%02X".format(value))
+                    break
+                }
                 val op = u16(bytes, offset)
                 result += decodeThumb(op, baseAddress + offset)
                 offset += 2
             } else {
-                if (offset + 3 >= bytes.size) break
+                if (offset + 3 >= bytes.size) {
+                    while (offset < bytes.size) {
+                        val value = bytes[offset].toInt() and 255
+                        result += DisassembledInstruction(baseAddress + offset, value, 1, ".byte", "0x%02X".format(value))
+                        offset++
+                    }
+                    break
+                }
                 val op = u32(bytes, offset)
                 result += decodeArm(op, baseAddress + offset)
                 offset += 4
@@ -46,12 +61,50 @@ object ArmDisassembler {
             x and 0xF800 == 0x3800 -> "SUBS" to "r${(x ushr 8) and 7}, #${x and 0xFF}"
             top in 0..2 -> {
                 val names = listOf("LSL", "LSR", "ASR")
-                names[top] to "r${x and 7}, r${(x ushr 3) and 7}, #${(x ushr 6) and 31}"
+                val rawAmount = (x ushr 6) and 31
+                val amount = if (top != 0 && rawAmount == 0) 32 else rawAmount
+                names[top] to "r${x and 7}, r${(x ushr 3) and 7}, #$amount"
+            }
+            x and 0xFC00 == 0x4000 -> {
+                val names = arrayOf("ANDS", "EORS", "LSLS", "LSRS", "ASRS", "ADCS", "SBCS", "RORS",
+                    "TST", "NEGS", "CMP", "CMN", "ORRS", "MULS", "BICS", "MVNS")
+                val operation = (x ushr 6) and 15
+                names[operation] to "r${x and 7}, r${(x ushr 3) and 7}"
+            }
+            x and 0xFC00 == 0x4400 -> {
+                val operation = (x ushr 8) and 3
+                val rd = (x and 7) or ((x ushr 4) and 8)
+                val rs = (x ushr 3) and 15
+                when (operation) {
+                    0 -> "ADD" to "r$rd, r$rs"
+                    1 -> "CMP" to "r$rd, r$rs"
+                    2 -> "MOV" to "r$rd, r$rs"
+                    else -> ".hword" to "0x%04X".format(x)
+                }
             }
             x and 0xF800 == 0x4800 -> {
                 val target = (pc and -4) + ((x and 0xFF) shl 2)
                 "LDR" to "r${(x ushr 8) and 7}, [PC, #${(x and 0xFF) shl 2}] ; =0x%08X".format(target)
             }
+            x and 0xFF00 == 0xB000 -> {
+                val offset = (x and 0x7F) shl 2
+                (if (x and 0x80 != 0) "SUB" else "ADD") to "SP, #$offset"
+            }
+            x and 0xFE00 == 0xB400 -> {
+                val registers = (0..7).filter { x and (1 shl it) != 0 }.map { "r$it" }.toMutableList()
+                if (x and 0x100 != 0) registers += "LR"
+                "PUSH" to "{${registers.joinToString(",")}}"
+            }
+            x and 0xFE00 == 0xBC00 -> {
+                val registers = (0..7).filter { x and (1 shl it) != 0 }.map { "r$it" }.toMutableList()
+                if (x and 0x100 != 0) registers += "PC"
+                "POP" to "{${registers.joinToString(",")}}"
+            }
+            x and 0xF000 == 0xC000 -> {
+                val registers = (0..7).filter { x and (1 shl it) != 0 }.joinToString(",") { "r$it" }
+                (if (x and 0x0800 != 0) "LDMIA" else "STMIA") to "r${(x ushr 8) and 7}!, {$registers}"
+            }
+            x and 0xFF00 == 0xDF00 -> "SWI" to "#${x and 0xFF}"
             x and 0xF000 == 0xD000 && (x ushr 8 and 0xF) < 0xE -> {
                 val cond = (x ushr 8) and 0xF
                 val names = listOf("EQ","NE","CS","CC","MI","PL","VS","VC","HI","LS","GE","LT","GT","LE")
