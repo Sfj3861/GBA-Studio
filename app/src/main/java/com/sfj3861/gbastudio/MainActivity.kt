@@ -275,7 +275,7 @@ private fun TutorialScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         TutorialStep("1", "Conoce los módulos", "Code Studio será el espacio para escribir C/C++. ROM Analyzer servirá para inspeccionar ROMs y Asset Studio gestionará recursos.")
-        TutorialStep("2", "Crea un proyecto", "Los proyectos contendrán código fuente, recursos, configuración de compilación y documentación. El gestor de proyectos llegará en la siguiente etapa.")
+        TutorialStep("2", "Crea un proyecto", "El gestor permite crear proyectos locales con carpetas src y assets, un archivo main.c y un manifiesto project.json. Desde la lista puedes abrir su estructura, renombrarlos o eliminarlos.")
         TutorialStep("3", "Compila para GBA", "El objetivo es integrar un toolchain ARM local que genere archivos .gba sin servicios externos.")
         TutorialStep("4", "Prueba y analiza", "Más adelante podrás ejecutar ROMs con el emulador integrado e inspeccionar resultados con herramientas de depuración.")
         Button(onClick = { completed = !completed }) {
