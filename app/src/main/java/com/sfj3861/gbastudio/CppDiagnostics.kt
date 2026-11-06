@@ -16,17 +16,22 @@ object CppDiagnostics {
     fun analyze(source: String): List<CodeDiagnostic> {
         val out = mutableListOf<CodeDiagnostic>()
         val lines = source.lines()
-        val hasStdIoInclude = lines.any {
-            Regex("""^\s*#\s*include\s*[<"]stdio\.h[>"]""").containsMatchIn(it)
+        var scanningBlockComment = false
+        val codeLines = lines.map { raw ->
+            val sanitized = stripCommentsAndLiterals(raw, scanningBlockComment)
+            scanningBlockComment = sanitized.second
+            sanitized.first
+        }
+        val hasUnclosedBlockComment = scanningBlockComment
+        val hasStdIoInclude = lines.indices.any { index ->
+            Regex("""^\s*#\s*include\b""").containsMatchIn(codeLines[index]) &&
+                Regex("""^\s*#\s*include\s*[<"]stdio\.h[>"]""").containsMatchIn(lines[index])
         }
         val delimiters = mutableListOf<OpeningDelimiter>()
-        var inBlockComment = false
 
-        lines.forEachIndexed { index, raw ->
+        lines.forEachIndexed { index, _ ->
             val lineNo = index + 1
-            val sanitized = stripCommentsAndLiterals(raw, inBlockComment)
-            val code = sanitized.first
-            inBlockComment = sanitized.second
+            val code = codeLines[index]
 
             code.forEachIndexed { columnIndex, char ->
                 when (char) {
@@ -78,7 +83,7 @@ object CppDiagnostics {
             }
         }
 
-        if (inBlockComment) {
+        if (hasUnclosedBlockComment) {
             out += CodeDiagnostic(
                 lines.size,
                 1,
