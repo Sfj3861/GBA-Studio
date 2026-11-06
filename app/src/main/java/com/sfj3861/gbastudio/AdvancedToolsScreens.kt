@@ -193,8 +193,9 @@ fun AssetStudioScreen() {
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            val boundsStream = context.contentResolver.openInputStream(uri)
                 ?: error("No se pudo leer la imagen.")
+            boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
             require(bounds.outWidth > 0 && bounds.outHeight > 0) { "El archivo no contiene una imagen válida." }
             require(bounds.outWidth.toLong() * bounds.outHeight.toLong() <= AssetStudio.MAX_PIXELS) {
                 "La imagen supera el límite de ${AssetStudio.MAX_PIXELS / 1_000_000} megapíxeles."
