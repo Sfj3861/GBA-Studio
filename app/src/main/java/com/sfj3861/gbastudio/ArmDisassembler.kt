@@ -102,13 +102,7 @@ object ArmDisassembler {
                 val disp = signExtend((op and 0xFFFFFF) shl 2, 26)
                 (if (op and (1 shl 24) != 0) "BL$suffix" else "B$suffix") to "0x%08X".format(pc + disp)
             }
-            op and 0x0C000000 == 0x04000000 -> {
-                val load = op and (1 shl 20) != 0
-                val rn = (op ushr 16) and 15
-                val rd = (op ushr 12) and 15
-                val offset = op and 0xFFF
-                (if (load) "LDR$suffix" else "STR$suffix") to "r$rd, [r$rn, #$offset]"
-            }
+            op and 0x0C000000 == 0x04000000 -> decodeArmTransfer(op, suffix)
             op and 0x0C000000 == 0 -> {
                 val names = arrayOf("AND","EOR","SUB","RSB","ADD","ADC","SBC","RSC","TST","TEQ","CMP","CMN","ORR","MOV","BIC","MVN")
                 val code = (op ushr 21) and 15
@@ -121,6 +115,33 @@ object ArmDisassembler {
             else -> ".word" to "0x%08X".format(op)
         }
         return DisassembledInstruction(address, op, 4, decoded.first, decoded.second)
+    }
+
+    private fun decodeArmTransfer(op: Int, suffix: String): Pair<String, String> {
+        val registerOffset = op and (1 shl 25) != 0
+        val preIndexed = op and (1 shl 24) != 0
+        val add = op and (1 shl 23) != 0
+        val byteTransfer = op and (1 shl 22) != 0
+        val writeBack = op and (1 shl 21) != 0
+        val load = op and (1 shl 20) != 0
+        val rn = (op ushr 16) and 15
+        val rd = (op ushr 12) and 15
+        val offset = if (registerOffset) {
+            val rm = op and 15
+            val shiftType = (op ushr 5) and 3
+            val shiftAmount = (op ushr 7) and 31
+            val shiftName = arrayOf("LSL", "LSR", "ASR", "ROR")[shiftType]
+            if (shiftAmount == 0) "r${rm}" else "r${rm}, $shiftName #$shiftAmount"
+        } else "#${op and 0xFFF}"
+        val signedOffset = (if (add) "" else "-") + offset
+        val base = "r$rn"
+        val address = if (preIndexed) {
+            "[$base, $signedOffset]" + (if (writeBack) "!" else "")
+        } else {
+            "[$base], $signedOffset"
+        }
+        val mnemonic = (if (load) "LDR" else "STR") + (if (byteTransfer) "B" else "") + suffix
+        return mnemonic to "r$rd, $address"
     }
 
     private fun u16(b: ByteArray, i: Int) = (b[i].toInt() and 255) or ((b[i + 1].toInt() and 255) shl 8)
