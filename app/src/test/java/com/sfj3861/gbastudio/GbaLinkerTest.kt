@@ -82,6 +82,49 @@ class GbaLinkerTest {
         )
     }
 
+
+    @Test fun appliesRel32RelocationFromRomSection() {
+        val result = GbaLinker.linkRawSections(
+            listOf(
+                GbaSection("code", byteArrayOf(0, 0, 0, 0), relocations = listOf(
+                    GbaRelocation(0, "target", GbaRelocation.Type.REL32)
+                )),
+                GbaSection("target", byteArrayOf(1, 2, 3, 4))
+            ),
+            "REL32 TEST",
+            symbols = listOf(GbaSymbol("target", "target", 0))
+        )
+        assertEquals(4, read32(result.image, 0xC0))
+    }
+
+    @Test fun appliesThumbBranchRelocationToEarlierRomSection() {
+        val result = GbaLinker.linkRawSections(
+            listOf(
+                GbaSection("target", byteArrayOf(1, 2, 3, 4)),
+                GbaSection("branch", byteArrayOf(0x00, 0xE0.toByte()), alignment = 2,
+                    relocations = listOf(GbaRelocation(0, "target", GbaRelocation.Type.THUMB_BRANCH11)))
+            ),
+            "THUMB BRANCH",
+            symbols = listOf(GbaSymbol("target", "target", 0))
+        )
+        assertEquals(0xE7FC, (result.image[0xC4].toInt() and 255) or
+            ((result.image[0xC5].toInt() and 255) shl 8))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsArmBranchRelocationWithWrongOpcode() {
+        GbaLinker.linkRawSections(
+            listOf(
+                GbaSection("code", byteArrayOf(0, 0, 0, 0), relocations = listOf(
+                    GbaRelocation(0, "target", GbaRelocation.Type.ARM_BRANCH24)
+                )),
+                GbaSection("target", byteArrayOf(0, 0, 0, 0))
+            ),
+            "BAD ARM",
+            symbols = listOf(GbaSymbol("target", "target", 0))
+        )
+    }
+
     private fun read32(bytes: ByteArray, offset: Int): Int =
         (bytes[offset].toInt() and 255) or
             ((bytes[offset + 1].toInt() and 255) shl 8) or
