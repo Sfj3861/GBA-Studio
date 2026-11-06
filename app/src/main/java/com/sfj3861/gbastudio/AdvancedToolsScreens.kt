@@ -60,6 +60,20 @@ fun DisassemblerScreen() {
             }.onFailure { bytes = null; label = "Error al importar: ${it.message}"; rows = emptyList() }
         }
     }
+    val saveMapTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null && mapTiles != null) runCatching {
+            val stream = context.contentResolver.openOutputStream(uri)
+                ?: error("No se pudo abrir el destino de tiles deduplicados.")
+            stream.use { it.write(mapTiles!!) }
+        }.onFailure { summary = "Error al exportar tiles deduplicados: ${it.message}" }
+    }
+    val saveTilemap = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null && tilemap != null) runCatching {
+            val stream = context.contentResolver.openOutputStream(uri)
+                ?: error("No se pudo abrir el destino del tilemap.")
+            stream.use { it.write(tilemap!!) }
+        }.onFailure { summary = "Error al exportar tilemap: ${it.message}" }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Desensamblador ARM / Thumb", style = MaterialTheme.typography.headlineMedium)
         Text("Inspecciona instrucciones de una ROM GBA. El decodificador cubre un subconjunto de ARM7TDMI; las instrucciones desconocidas se muestran como datos.")
@@ -196,6 +210,9 @@ fun AssetStudioScreen() {
     val context = LocalContext.current
     var palette by remember { mutableStateOf<ByteArray?>(null) }
     var tiles by remember { mutableStateOf<ByteArray?>(null) }
+    var mapTiles by remember { mutableStateOf<ByteArray?>(null) }
+    var tilemap by remember { mutableStateOf<ByteArray?>(null) }
+    var mapSummary by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var summary by remember { mutableStateOf("Importa una imagen PNG, JPG o WebP.") }
     DisposableEffect(preview) {
@@ -222,17 +239,38 @@ fun AssetStudioScreen() {
                     palette = AssetStudio.paletteBytes(result.colors)
                     tiles = result.tiles4bpp
                     preview = rendered
-                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles 8×8: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
+                    val mapResult = runCatching { GbaTileMapBuilder.build(result) }
+                    mapResult.onSuccess { built ->
+                        mapTiles = built.uniqueTiles4bpp
+                        tilemap = built.bytes
+                        mapSummary = "Tilemap: ${built.widthTiles}×${built.heightTiles} · modo ${built.sizeCode} · ${built.uniqueTileCount} tiles únicos"
+                    }.onFailure {
+                        mapTiles = null
+                        tilemap = null
+                        mapSummary = "Tilemap no generado: ${it.message}"
+                    }
+                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles de origen: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
                 }.onFailure {
                     summary = "Error: ${it.message}"
                     palette = null
                     tiles = null
+                    mapTiles = null
+                    tilemap = null
+                    mapSummary = ""
                     preview = null
                 }
             } finally {
                 bitmap.recycle()
             }
-        }.onFailure { summary = "Error al importar: ${it.message}"; palette = null; tiles = null; preview = null }
+        }.onFailure {
+            summary = "Error al importar: ${it.message}"
+            palette = null
+            tiles = null
+            mapTiles = null
+            tilemap = null
+            mapSummary = ""
+            preview = null
+        }
     }
     val saveTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null && tiles != null) runCatching {
@@ -251,6 +289,7 @@ fun AssetStudioScreen() {
         Text("Convierte imágenes en tiles 4bpp de 8×8 y paletas BGR555 para gráficos GBA.")
         Button(onClick = { imagePicker.launch("image/*") }) { Text("Importar imagen") }
         Text(summary)
+        if (mapSummary.isNotBlank()) Text(mapSummary, color = MaterialTheme.colorScheme.secondary)
         preview?.let { bitmap ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Image(
@@ -262,8 +301,12 @@ fun AssetStudioScreen() {
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled = tiles != null, onClick = { saveTiles.launch("tiles.4bpp") }) { Text("Exportar tiles") }
+            OutlinedButton(enabled = tiles != null, onClick = { saveTiles.launch("tiles-raw.4bpp") }) { Text("Tiles originales") }
             OutlinedButton(enabled = palette != null, onClick = { savePalette.launch("palette.pal") }) { Text("Exportar paleta") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = mapTiles != null, onClick = { saveMapTiles.launch("tiles-unique.4bpp") }) { Text("Tiles para mapa") }
+            OutlinedButton(enabled = tilemap != null, onClick = { saveTilemap.launch("background.map") }) { Text("Exportar tilemap") }
         }
     }
 }
