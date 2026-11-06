@@ -21,7 +21,8 @@
 - [ ] Code completion and symbol navigation
 - [ ] ARM7TDMI bare-metal compiler integration
 - [x] Initial GNU ld GBA memory-map script
-- [ ] ELF linking, symbol resolution and relocation support
+- [x] Initial raw-section symbol resolution and ABS32/REL32/ARM_BRANCH24/THUMB_BRANCH11 relocations
+- [ ] ELF object parsing and complete ARM relocation support
 - [ ] Startup code, runtime libraries and valid ROM header pipeline
 - [ ] Reproducible end-to-end build of a homebrew ROM
 
