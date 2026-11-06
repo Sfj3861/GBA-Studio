@@ -44,13 +44,14 @@
 - [ ] Tilemap editor and preview
 - [ ] Sprite/OAM editor and animation timeline
 - [ ] Audio conversion pipeline
-- [x] Basic deterministic 15-color palette reduction for 4bpp assets
+- [x] Basic deterministic 15-color palette reduction for 4bpp assets (source images capped at 4 megapixels)
 - [ ] Dithering and advanced palette optimization
 - [ ] Source project compatibility report and porting helpers
 
 ## Milestone 5 — Emulation and debugging
-- [x] Experimental ARM/Thumb arithmetic/branch stepper with condition flags and BX state switching
-- [ ] Full ARM7TDMI execution and memory bus
+- [x] Experimental ARM/Thumb arithmetic/branch stepper with condition flags, BX state switching, MUL/MLA and selected load/store instructions
+- [x] Initial ROM/EWRAM/IWRAM data bus for the supported instruction subset
+- [ ] Full ARM7TDMI execution and complete GBA memory bus (current ROM/EWRAM/IWRAM implementation is partial)
 - [ ] GBA PPU/video rendering
 - [ ] Timers, DMA, interrupts, keypad and memory-mapped peripherals
 - [ ] Audio engine
