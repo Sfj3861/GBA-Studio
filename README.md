@@ -13,10 +13,10 @@
 - ARM/Thumb disassembler for a documented subset of common instructions; unknown opcodes are displayed as data.
 - C/C++ quick diagnostics for common structural mistakes. These are heuristics, not compiler diagnostics.
 - Experimental raw-section ROM image builder with named symbols and ABS32, REL32, ARM_BRANCH24 and THUMB_BRANCH11 relocations, plus GBA memory-region placement and GNU ld memory-map script.
-- Asset Studio image import and conversion to 8x8 4bpp tile data and BGR555 palette bytes.
+- Asset Studio image import and conversion to 8x8 4bpp tile data, with transparent index 0 and deterministic frequency-based BGR555 palette reduction.
 - Experimental ARM7TDMI instruction stepper with a small ARM/Thumb instruction subset.
 - CMake/NDK native library and JNI bootstrap.
-- JVM tests for ROM headers, disassembly, diagnostics and raw ROM image generation.
+- JVM tests for ROM headers, disassembly, diagnostics, raw ROM image generation and palette quantization.
 
 ## Important limitations
 
@@ -27,7 +27,7 @@ This is an evolving development build, not yet a complete GBA IDE.
 - **ROM bootability:** the experimental image builder does not include the GBA BIOS logo/header template or startup runtime. Its output is not guaranteed to boot on hardware or in an emulator.
 - **Disassembler:** decoding coverage is partial; unknown instructions remain \`.word\` / \`.hword\`.
 - **Diagnostics:** fast heuristic checks only; use a real compiler for authoritative errors.
-- **Asset Studio:** currently converts raster images to tiled 4bpp and BGR555 palette data. Tilemaps, animation, audio and advanced palette optimization remain future work.
+- **Asset Studio:** converts raster images to tiled 4bpp and BGR555 palette data. When an image exceeds 15 opaque colors, a deterministic frequency-based palette reduction maps excess colors to the nearest selected color. Tilemaps, animation, dithering and advanced palette optimization remain future work.
 - **Emulator:** currently a CPU instruction stepper for a small subset. It does not emulate the PPU/video, audio, DMA, timers, interrupts, memory-mapped peripherals or full ARM7TDMI behavior. It cannot yet run complete GBA games.
 - **ChatGPT:** API integration is not connected yet.
 
