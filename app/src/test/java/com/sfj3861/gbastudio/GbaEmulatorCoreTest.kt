@@ -62,6 +62,29 @@ class GbaEmulatorCoreTest {
         assertTrue(state.message.contains("no implementado"))
     }
 
+
+    @Test fun bxSwitchesFromArmToThumbMode() {
+        val rom = ByteArray(0xC2)
+        val bxR0 = 0xE12FFF10.toInt()
+        rom[0] = bxR0.toByte()
+        rom[1] = (bxR0 ushr 8).toByte()
+        rom[2] = (bxR0 ushr 16).toByte()
+        rom[3] = (bxR0 ushr 24).toByte()
+        rom[0xC0] = 0x01
+        rom[0xC1] = 0x20 // MOVS r0, #1 in Thumb
+        val initial = IntArray(16).also { it[0] = GbaEmulatorCoreTestBase.ROM_BASE + 0xC1 }
+        val core = GbaEmulatorCore(rom, initialRegisters = initial)
+
+        val switched = core.step()
+        assertTrue(switched.thumb)
+        assertTrue(switched.cpsr and (1 shl 5) != 0)
+        assertEquals(GbaEmulatorCoreTestBase.ROM_BASE + 0xC0, switched.pc)
+
+        val executed = core.step()
+        assertEquals(1, executed.registers[0])
+        assertTrue(executed.thumb)
+    }
+
     private fun romOf(vararg instructions: Int): ByteArray {
         val rom = ByteArray(0xC0)
         instructions.forEachIndexed { index, instruction ->
