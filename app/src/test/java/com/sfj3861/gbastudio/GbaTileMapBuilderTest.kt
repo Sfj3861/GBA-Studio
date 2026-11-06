@@ -72,7 +72,7 @@ class GbaTileMapBuilderTest {
         assertEquals(1, map.entries[1024])
         assertEquals(2, map.entries[2048])
         assertEquals(3, map.entries[3072])
-        assertEquals(128 * 32, map.uniqueTiles4bpp.size)
+        assertEquals(4 * 32, map.uniqueTiles4bpp.size)
     }
 
     @Test fun encodesPaletteBankInHighNibble() {
