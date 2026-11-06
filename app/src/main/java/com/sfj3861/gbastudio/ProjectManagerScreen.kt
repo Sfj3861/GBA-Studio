@@ -57,6 +57,7 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    fun refresh() { projects = repository.list() }
     var exportTarget by remember { mutableStateOf<GbaProject?>(null) }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -91,7 +92,6 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
         }
     }
 
-    fun refresh() { projects = repository.list() }
     fun loadFile(project: GbaProject, relativePath: String) {
         scope.launch {
             try {
