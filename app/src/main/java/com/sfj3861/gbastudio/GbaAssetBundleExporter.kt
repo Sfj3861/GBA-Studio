@@ -95,7 +95,7 @@ Files:
 - asset.h: C preprocessor constants for the generated asset.
 - asset.json: machine-readable metadata.
 
-The map uses palette bank 0. Tile indices in background.map address tiles.4bpp.
+The map uses palette bank ${map.paletteBank}. Tile indices in background.map address tiles.4bpp.
 The bundle does not include VRAM upload code, BG control register setup, DMA code,
 or a game-specific screen initialization routine. Integrate those in your GBA project.
 """
