@@ -23,9 +23,10 @@ class ProjectRepository(context: Context) {
     fun list(): List<GbaProject> = readIndex().mapNotNull { item ->
         val id = item.optString("id")
         val name = item.optString("name")
-        val dir = File(root, id)
-        if (id.isBlank() || name.isBlank() || !dir.isDirectory) null
-        else GbaProject(id, name, dir, item.optLong("updatedAt"))
+        val safeId = runCatching { UUID.fromString(id).toString() }.getOrNull()
+        val dir = safeId?.let { File(root, it) }
+        if (safeId == null || name.isBlank() || dir == null || !dir.isDirectory) null
+        else GbaProject(safeId, name, dir, item.optLong("updatedAt"))
     }.sortedByDescending { it.updatedAt }
 
     fun create(name: String): GbaProject {
@@ -62,8 +63,49 @@ class ProjectRepository(context: Context) {
     }
 
     fun delete(project: GbaProject) {
-        project.directory.deleteRecursively()
+        requireOwned(project)
+        check(project.directory.deleteRecursively()) { "No se pudo eliminar la carpeta del proyecto." }
         writeIndex(list().filterNot { it.id == project.id })
+    }
+
+    fun readText(project: GbaProject, relativePath: String): String {
+        val file = resolveFile(project, relativePath)
+        require(file.isFile) { "El archivo no existe." }
+        require(file.length() <= 2_000_000L) { "El archivo supera el límite de edición de 2 MB." }
+        return file.readText(Charsets.UTF_8)
+    }
+
+    fun writeText(project: GbaProject, relativePath: String, content: String) {
+        val file = resolveFile(project, relativePath)
+        require(content.toByteArray(Charsets.UTF_8).size <= 2_000_000) { "El archivo supera el límite de edición de 2 MB." }
+        require(file.isFile) { "Solo se pueden editar archivos existentes." }
+        require(file.extension.lowercase() in setOf("c", "h", "cpp", "hpp", "txt", "md", "json")) {
+            "Este tipo de archivo todavía no se puede editar."
+        }
+        val temp = File(file.parentFile, file.name + ".tmp")
+        temp.writeText(content, Charsets.UTF_8)
+        check(temp.renameTo(file)) { "No se pudo guardar el archivo." }
+        val now = System.currentTimeMillis()
+        writeIndex(list().map { if (it.id == project.id) it.copy(updatedAt = now) else it })
+    }
+
+    private fun requireOwned(project: GbaProject) {
+        val canonicalRoot = root.canonicalFile
+        val canonicalDir = project.directory.canonicalFile
+        require(canonicalDir.parentFile == canonicalRoot && canonicalDir.name == project.id) {
+            "La carpeta no pertenece a este espacio de proyectos."
+        }
+    }
+
+    private fun resolveFile(project: GbaProject, relativePath: String): File {
+        requireOwned(project)
+        require(relativePath.isNotBlank() && !relativePath.startsWith("/") && !relativePath.contains("\\")) {
+            "Ruta de archivo no válida."
+        }
+        val base = project.directory.canonicalFile
+        val file = File(base, relativePath).canonicalFile
+        require(file.path.startsWith(base.path + File.separator)) { "La ruta sale de la carpeta del proyecto." }
+        return file
     }
 
     private fun readIndex(): List<JSONObject> = try {
