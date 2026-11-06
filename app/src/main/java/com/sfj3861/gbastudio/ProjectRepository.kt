@@ -1,6 +1,7 @@
 package com.sfj3861.gbastudio
 
 import android.content.Context
+import android.util.AtomicFile
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.zip.ZipEntry
@@ -24,6 +25,7 @@ data class GbaProject(
 class ProjectRepository(context: Context) {
     private val root = File(context.filesDir, "gba-projects").apply { mkdirs() }
     private val index = File(root, "projects.json")
+    private val atomicIndex = AtomicFile(index)
 
     fun list(): List<GbaProject> = readIndex().mapNotNull { item ->
         val id = item.optString("id")
@@ -197,7 +199,7 @@ class ProjectRepository(context: Context) {
     private fun readIndex(): List<JSONObject> = try {
         if (!index.exists()) emptyList()
         else {
-            val array = JSONArray(index.readText())
+            val array = JSONArray(atomicIndex.openRead().bufferedReader(Charsets.UTF_8).use { it.readText() })
             (0 until array.length()).map { array.getJSONObject(it) }
         }
     } catch (_: Exception) { emptyList() }
@@ -207,9 +209,14 @@ class ProjectRepository(context: Context) {
         projects.forEach {
             array.put(JSONObject().put("id", it.id).put("name", it.name).put("updatedAt", it.updatedAt))
         }
-        val temp = File(root, "projects.json.tmp")
-        temp.writeText(array.toString(2))
-        if (index.exists()) index.delete()
-        check(temp.renameTo(index)) { "No se pudo guardar el índice de proyectos." }
+        val output = atomicIndex.startWrite()
+        try {
+            output.write(array.toString(2).toByteArray(Charsets.UTF_8))
+            output.flush()
+            atomicIndex.finishWrite(output)
+        } catch (error: Exception) {
+            atomicIndex.failWrite(output)
+            throw error
+        }
     }
 }
