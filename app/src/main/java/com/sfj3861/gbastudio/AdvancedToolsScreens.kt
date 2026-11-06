@@ -44,8 +44,14 @@ fun DisassemblerScreen() {
     var rows by remember { mutableStateOf(emptyList<DisassembledInstruction>()) }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
-                .onSuccess { data -> bytes = data; label = uri.lastPathSegment ?: "ROM importada"; rows = emptyList() }
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE) }
+                    ?: error("No se pudo abrir el archivo.")
+            }.onSuccess { data ->
+                bytes = data
+                label = uri.lastPathSegment ?: "ROM importada"
+                rows = emptyList()
+            }.onFailure { bytes = null; label = "Error al importar: ${it.message}"; rows = emptyList() }
         }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -121,12 +127,24 @@ fun LinkerScreen() {
     var output by remember { mutableStateOf<ByteArray?>(null) }
     var report by remember { mutableStateOf("") }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
-            .onSuccess { input = it; fileName = uri.lastPathSegment ?: "binary.bin"; output = null }
+        if (uri != null) runCatching {
+            context.contentResolver.openInputStream(uri)?.use {
+                it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE - GbaLinker.HEADER_SIZE)
+            } ?: error("No se pudo abrir el binario.")
+        }.onSuccess {
+            input = it
+            fileName = uri.lastPathSegment ?: "binary.bin"
+            output = null
+            report = ""
+        }.onFailure {
+            input = null
+            output = null
+            fileName = "Error al importar: ${it.message}"
+        }
     }
     val openLogo = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("No se pudo leer el bloque de logo.")
+            context.contentResolver.openInputStream(uri)?.use { it.readBoundedBytes(GbaRomHeader.LOGO_SIZE) } ?: error("No se pudo leer el bloque de logo.")
         }.onSuccess { data ->
             if (data.size == GbaRomHeader.LOGO_SIZE) {
                 logo = data
@@ -174,16 +192,27 @@ fun AssetStudioScreen() {
     var summary by remember { mutableStateOf("Importa una imagen PNG, JPG o WebP.") }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
                 ?: error("No se pudo leer la imagen.")
+            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "El archivo no contiene una imagen válida." }
+            require(bounds.outWidth.toLong() * bounds.outHeight.toLong() <= AssetStudio.MAX_PIXELS) {
+                "La imagen supera el límite de ${AssetStudio.MAX_PIXELS / 1_000_000} megapíxeles."
+            }
+            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                ?: error("No se pudo decodificar la imagen.")
         }.onSuccess { bitmap ->
-            runCatching { AssetStudio.convertTo4Bpp(bitmap) }
-                .onSuccess { result ->
-                    palette = AssetStudio.paletteBytes(result.colors)
-                    tiles = result.tiles4bpp
-                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles 8×8: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
-                }.onFailure { summary = "Error: ${it.message}" }
-        }.onFailure { summary = "Error al importar: ${it.message}" }
+            try {
+                runCatching { AssetStudio.convertTo4Bpp(bitmap) }
+                    .onSuccess { result ->
+                        palette = AssetStudio.paletteBytes(result.colors)
+                        tiles = result.tiles4bpp
+                        summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles 8×8: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
+                    }.onFailure { summary = "Error: ${it.message}"; palette = null; tiles = null }
+            } finally {
+                bitmap.recycle()
+            }
+        }.onFailure { summary = "Error al importar: ${it.message}"; palette = null; tiles = null }
     }
     val saveTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null && tiles != null) runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(tiles!!) } }
@@ -211,7 +240,7 @@ fun EmulatorScreen() {
     var status by remember { mutableStateOf("Carga una ROM GBA para iniciar la prueba de CPU.") }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("No se pudo leer la ROM.")
+            context.contentResolver.openInputStream(uri)?.use { it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE) } ?: error("No se pudo leer la ROM.")
         }.onSuccess { data ->
             runCatching { GbaEmulatorCore(data) }.onSuccess {
                 core = it; snapshot = it.snapshot(); status = "ROM cargada: ${data.size} bytes"
