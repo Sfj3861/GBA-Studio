@@ -219,27 +219,35 @@ fun AssetStudioScreen() {
                 ?: error("No se pudo decodificar la imagen.")
         }.onSuccess { bitmap ->
             try {
-                runCatching {
-                    val result = AssetStudio.convertTo4Bpp(bitmap)
-                    result to AssetStudio.renderPreview(result)
-                }.onSuccess { (result, rendered) ->
-                    palette = AssetStudio.paletteBytes(result.colors)
-                    tiles = result.tiles4bpp
-                    preview = rendered
-                    val mapResult = runCatching { GbaTileMapBuilder.build(result) }
-                    mapResult.onSuccess { built ->
-                        mapTiles = built.uniqueTiles4bpp
-                        tilemap = built.bytes
-                        assetBundleZip = runCatching { GbaAssetBundleExporter.createZip(result, built) }.getOrNull()
-                        mapSummary = "Tilemap: ${built.widthTiles}×${built.heightTiles} · modo ${built.sizeCode} · ${built.uniqueTileCount} tiles únicos"
+                runCatching { AssetStudio.convertTo4Bpp(bitmap) }
+                    .onSuccess { result ->
+                        palette = AssetStudio.paletteBytes(result.colors)
+                        tiles = result.tiles4bpp
+                        val mapResult = runCatching { GbaTileMapBuilder.build(result) }
+                        mapResult.onSuccess { built ->
+                            mapTiles = built.uniqueTiles4bpp
+                            tilemap = built.bytes
+                            assetBundleZip = runCatching {
+                                GbaAssetBundleExporter.createZip(result, built)
+                            }.getOrNull()
+                            val mapPixels = GbaTileMapPreviewRenderer.renderArgbPixels(built, result.colors)
+                            preview = Bitmap.createBitmap(
+                                built.widthTiles * 8,
+                                built.heightTiles * 8,
+                                Bitmap.Config.ARGB_8888
+                            ).apply {
+                                setPixels(mapPixels, 0, built.widthTiles * 8, 0, 0, built.widthTiles * 8, built.heightTiles * 8)
+                            }
+                            mapSummary = "Vista previa del fondo: ${built.widthTiles * 8}×${built.heightTiles * 8} px · modo ${built.sizeCode} · ${built.uniqueTileCount} tiles únicos"
+                        }.onFailure {
+                            mapTiles = null
+                            tilemap = null
+                            assetBundleZip = null
+                            preview = runCatching { AssetStudio.renderPreview(result) }.getOrNull()
+                            mapSummary = "Tilemap no generado: ${it.message}. Se muestra la imagen convertida sin mapa."
+                        }
+                        summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles de origen: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
                     }.onFailure {
-                        mapTiles = null
-                        tilemap = null
-                        assetBundleZip = null
-                        mapSummary = "Tilemap no generado: ${it.message}"
-                    }
-                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles de origen: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
-                }.onFailure {
                     summary = "Error: ${it.message}"
                     palette = null
                     tiles = null
@@ -306,7 +314,7 @@ fun AssetStudioScreen() {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Image(
                     bitmap.asImageBitmap(),
-                    contentDescription = "Vista previa de los tiles GBA convertidos",
+                    contentDescription = "Vista previa del fondo GBA reconstruido a partir del tilemap",
                     modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp).padding(12.dp),
                     contentScale = ContentScale.Fit
                 )
