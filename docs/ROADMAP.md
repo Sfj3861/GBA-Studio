@@ -22,14 +22,17 @@
 - [ ] ARM7TDMI bare-metal compiler integration
 - [x] Initial GNU ld GBA memory-map script
 - [x] Initial raw-section symbol resolution and ABS32/REL32/ARM_BRANCH24/THUMB_BRANCH11 relocations
+- [x] Relocation overlap, address-range and alignment validation
+- [x] Initial GBA header writer with entry branch, fixed byte and complement checksum
 - [ ] ELF object parsing and complete ARM relocation support
 - [ ] Startup code, runtime libraries and valid ROM header pipeline
 - [ ] Reproducible end-to-end build of a homebrew ROM
 
 ## Milestone 3 — ROM inspection
-- [x] ROM header parser and checksum validation
+- [x] ROM header parser, complement checksum and fixed-byte validation
+- [x] Entry branch decoding and logo-data presence reporting (not BIOS-logo verification)
 - [x] Read-only paged hexadecimal viewer
-- [x] Initial ARM/Thumb disassembler for a limited instruction subset
+- [x] Initial ARM/Thumb disassembler for a limited instruction subset, including immediate transfers and ARM rotated immediates
 - [ ] Complete ARM7TDMI ARM/Thumb decoding coverage
 - [ ] Symbols, cross-references and function analysis
 - [ ] Export analysis reports
@@ -46,7 +49,7 @@
 - [ ] Source project compatibility report and porting helpers
 
 ## Milestone 5 — Emulation and debugging
-- [x] Experimental ARM/Thumb instruction stepper
+- [x] Experimental ARM/Thumb arithmetic/branch stepper with condition flags and BX state switching
 - [ ] Full ARM7TDMI execution and memory bus
 - [ ] GBA PPU/video rendering
 - [ ] Timers, DMA, interrupts, keypad and memory-mapped peripherals
