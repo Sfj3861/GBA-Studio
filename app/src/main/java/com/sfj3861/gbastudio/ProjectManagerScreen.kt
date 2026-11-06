@@ -37,8 +37,9 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun ProjectManagerScreen(repository: ProjectRepository, onOpenProject: (GbaProject) -> Unit) {
+fun ProjectManagerScreen(repository: ProjectRepository) {
     var projects by remember { mutableStateOf(emptyList<GbaProject>()) }
+    var activeProject by remember { mutableStateOf<GbaProject?>(null) }
     var showCreate by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<GbaProject?>(null) }
     var deleting by remember { mutableStateOf<GbaProject?>(null) }
@@ -49,6 +50,22 @@ fun ProjectManagerScreen(repository: ProjectRepository, onOpenProject: (GbaProje
     LaunchedEffect(Unit) { refresh() }
 
     Column(Modifier.fillMaxSize().padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        if (activeProject != null) {
+            val opened = activeProject!!
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { activeProject = null }) { Text("Volver") }
+                Text(opened.name, style = MaterialTheme.typography.headlineSmall)
+            }
+            Text("Archivos del proyecto", style = MaterialTheme.typography.titleMedium)
+            val entries = opened.directory.walkTopDown().filter { it.isFile }.toList()
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(entries, key = { it.absolutePath }) { file ->
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        Text(file.relativeTo(opened.directory).invariantSeparatorsPath, Modifier.fillMaxWidth().padding(12.dp))
+                    }
+                }
+            }
+        } else {
         Row(Modifier.fillMaxWidth()) {
             Column(Modifier.weight(1f)) {
                 Text("Mis proyectos", style = MaterialTheme.typography.headlineMedium)
@@ -77,7 +94,7 @@ fun ProjectManagerScreen(repository: ProjectRepository, onOpenProject: (GbaProje
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(project.directory.name, style = MaterialTheme.typography.labelSmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { onOpenProject(project) }) { Text("Abrir") }
+                                Button(onClick = { activeProject = project }) { Text("Abrir") }
                                 OutlinedButton(onClick = { editing = project }) { Text("Renombrar") }
                                 TextButton(onClick = { deleting = project }) { Text("Eliminar") }
                             }
@@ -85,6 +102,7 @@ fun ProjectManagerScreen(repository: ProjectRepository, onOpenProject: (GbaProje
                     }
                 }
             }
+        }
         }
     }
 
