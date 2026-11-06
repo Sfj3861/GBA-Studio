@@ -198,6 +198,7 @@ fun AssetStudioScreen() {
     var tiles by remember { mutableStateOf<ByteArray?>(null) }
     var mapTiles by remember { mutableStateOf<ByteArray?>(null) }
     var tilemap by remember { mutableStateOf<ByteArray?>(null) }
+    var assetBundleZip by remember { mutableStateOf<ByteArray?>(null) }
     var mapSummary by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var summary by remember { mutableStateOf("Importa una imagen PNG, JPG o WebP.") }
@@ -229,10 +230,12 @@ fun AssetStudioScreen() {
                     mapResult.onSuccess { built ->
                         mapTiles = built.uniqueTiles4bpp
                         tilemap = built.bytes
+                        assetBundleZip = runCatching { GbaAssetBundleExporter.createZip(result, built) }.getOrNull()
                         mapSummary = "Tilemap: ${built.widthTiles}×${built.heightTiles} · modo ${built.sizeCode} · ${built.uniqueTileCount} tiles únicos"
                     }.onFailure {
                         mapTiles = null
                         tilemap = null
+                        assetBundleZip = null
                         mapSummary = "Tilemap no generado: ${it.message}"
                     }
                     summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles de origen: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
@@ -242,6 +245,7 @@ fun AssetStudioScreen() {
                     tiles = null
                     mapTiles = null
                     tilemap = null
+                    assetBundleZip = null
                     mapSummary = ""
                     preview = null
                 }
@@ -254,6 +258,7 @@ fun AssetStudioScreen() {
             tiles = null
             mapTiles = null
             tilemap = null
+            assetBundleZip = null
             mapSummary = ""
             preview = null
         }
@@ -284,6 +289,13 @@ fun AssetStudioScreen() {
             stream.use { it.write(tilemap!!) }
         }.onFailure { summary = "Error al exportar tilemap: ${it.message}" }
     }
+    val saveBundle = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null && assetBundleZip != null) runCatching {
+            val stream = context.contentResolver.openOutputStream(uri)
+                ?: error("No se pudo abrir el destino del paquete ZIP.")
+            stream.use { it.write(assetBundleZip!!) }
+        }.onFailure { summary = "Error al exportar paquete: ${it.message}" }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Asset Studio", style = MaterialTheme.typography.headlineMedium)
         Text("Convierte imágenes en tiles 4bpp de 8×8 y paletas BGR555 para gráficos GBA.")
@@ -308,6 +320,11 @@ fun AssetStudioScreen() {
             OutlinedButton(enabled = mapTiles != null, onClick = { saveMapTiles.launch("tiles-unique.4bpp") }) { Text("Tiles para mapa") }
             OutlinedButton(enabled = tilemap != null, onClick = { saveTilemap.launch("background.map") }) { Text("Exportar tilemap") }
         }
+        OutlinedButton(
+            enabled = assetBundleZip != null,
+            onClick = { saveBundle.launch("gba-assets.zip") },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Exportar paquete completo ZIP") }
     }
 }
 
