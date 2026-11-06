@@ -40,6 +40,12 @@ class CppDiagnosticsTest {
         assertTrue(results.any { it.message.contains("orden incorrecto") })
     }
 
+
+    @Test fun ignoresIncludesInsideBlockComments() {
+        val results = CppDiagnostics.analyze("/*\n#include <stdio.h>\n*/\nprintf(\"not included\");")
+        assertTrue(results.any { it.message.contains("stdio.h") })
+    }
+
     @Test fun doesNotWarnAboutReturnOnNextLine() {
         val results = CppDiagnostics.analyze("int main(void) {\n return 0;\n}")
         assertFalse(results.any { it.severity == CodeDiagnostic.Severity.WARNING })
