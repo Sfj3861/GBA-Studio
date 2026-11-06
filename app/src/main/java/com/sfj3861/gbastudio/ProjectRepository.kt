@@ -68,6 +68,16 @@ class ProjectRepository(context: Context) {
         writeIndex(list().filterNot { it.id == project.id })
     }
 
+    fun createTextFile(project: GbaProject, relativePath: String) {
+        val file = resolveFile(project, relativePath)
+        require(file.extension.lowercase() in setOf("c", "h", "cpp", "hpp", "txt", "md", "json")) {
+            "Extensión no compatible."
+        }
+        check(!file.exists()) { "Ya existe un archivo con ese nombre." }
+        check(file.parentFile?.mkdirs() != false) { "No se pudo crear la carpeta." }
+        check(file.createNewFile()) { "No se pudo crear el archivo." }
+    }
+
     fun readText(project: GbaProject, relativePath: String): String {
         val file = resolveFile(project, relativePath)
         require(file.isFile) { "El archivo no existe." }
