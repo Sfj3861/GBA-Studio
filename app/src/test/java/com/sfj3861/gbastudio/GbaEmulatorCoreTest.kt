@@ -186,6 +186,40 @@ class GbaEmulatorCoreTest {
         assertTrue(state.message.contains("halfword"))
     }
 
+
+    @Test fun tracksSignedOverflowOnArmAdd() {
+        val core = GbaEmulatorCore(
+            romOf(0xE2910001.toInt()), // ADDS r0, r1, #1
+            initialRegisters = IntArray(16).also { it[1] = 0x7FFFFFFF }
+        )
+        val state = core.step()
+        assertEquals(0x80000000.toInt(), state.registers[0])
+        assertTrue(state.cpsr and (1 shl 31) != 0)
+        assertTrue(state.cpsr and (1 shl 28) != 0)
+        assertFalse(state.cpsr and (1 shl 29) != 0)
+    }
+
+    @Test fun tracksBorrowOnArmSubtract() {
+        val core = GbaEmulatorCore(
+            romOf(0xE2510001.toInt()), // SUBS r0, r1, #1
+            initialRegisters = IntArray(16).also { it[1] = 0 }
+        )
+        val state = core.step()
+        assertEquals(-1, state.registers[0])
+        assertTrue(state.cpsr and (1 shl 31) != 0)
+        assertFalse(state.cpsr and (1 shl 29) != 0)
+        assertFalse(state.cpsr and (1 shl 28) != 0)
+    }
+
+    @Test fun rejectsReservedThumbBxVariant() {
+        val rom = ByteArray(0xC0)
+        rom[0] = 0x80.toByte()
+        rom[1] = 0x47
+        val state = GbaEmulatorCore(rom, startInThumb = true).step()
+        assertTrue(state.halted)
+        assertTrue(state.message.contains("Thumb opcode"))
+    }
+
     private fun romOf(vararg instructions: Int): ByteArray {
         val rom = ByteArray(0xC0)
         instructions.forEachIndexed { index, instruction ->
