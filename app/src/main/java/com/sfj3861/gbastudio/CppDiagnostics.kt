@@ -10,13 +10,16 @@ data class CodeDiagnostic(
 }
 
 object CppDiagnostics {
+    private data class OpeningDelimiter(val char: Char, val line: Int, val column: Int)
+
     /** Fast editor feedback. This is intentionally a heuristic checker, not a C/C++ compiler. */
     fun analyze(source: String): List<CodeDiagnostic> {
         val out = mutableListOf<CodeDiagnostic>()
         val lines = source.lines()
-        var braces = 0
-        var parens = 0
-        var brackets = 0
+        val hasStdIoInclude = lines.any {
+            Regex("""^\s*#\s*include\s*[<"]stdio\.h[>"]""").containsMatchIn(it)
+        }
+        val delimiters = mutableListOf<OpeningDelimiter>()
         var inBlockComment = false
 
         lines.forEachIndexed { index, raw ->
@@ -25,47 +28,83 @@ object CppDiagnostics {
             val code = sanitized.first
             inBlockComment = sanitized.second
 
-            braces += code.count { it == '{' } - code.count { it == '}' }
-            parens += code.count { it == '(' } - code.count { it == ')' }
-            brackets += code.count { it == '[' } - code.count { it == ']' }
+            code.forEachIndexed { columnIndex, char ->
+                when (char) {
+                    '{', '(', '[' -> delimiters += OpeningDelimiter(char, lineNo, columnIndex + 1)
+                    '}', ')', ']' -> {
+                        val expected = when (char) {
+                            '}' -> '{'
+                            ')' -> '('
+                            else -> '['
+                        }
+                        val opening = delimiters.lastOrNull()
+                        if (opening == null || opening.char != expected) {
+                            out += CodeDiagnostic(
+                                lineNo,
+                                columnIndex + 1,
+                                CodeDiagnostic.Severity.ERROR,
+                                "Cierre '$char' sin apertura coincidente o en orden incorrecto."
+                            )
+                        } else {
+                            delimiters.removeAt(delimiters.lastIndex)
+                        }
+                    }
+                }
+            }
 
-            if (braces < 0) {
-                out += CodeDiagnostic(lineNo, 1, CodeDiagnostic.Severity.ERROR, "Llave de cierre sin apertura.")
-                braces = 0
-            }
-            if (parens < 0) {
-                out += CodeDiagnostic(lineNo, 1, CodeDiagnostic.Severity.ERROR, "Paréntesis de cierre sin apertura.")
-                parens = 0
-            }
-            if (brackets < 0) {
-                out += CodeDiagnostic(lineNo, 1, CodeDiagnostic.Severity.ERROR, "Corchete de cierre sin apertura.")
-                brackets = 0
-            }
-            if (Regex("\\bprintf\\s*\\(").containsMatchIn(code) && !code.contains("#include")) {
-                out += CodeDiagnostic(lineNo, 1, CodeDiagnostic.Severity.INFO, "Comprueba que has incluido <stdio.h> si utilizas printf.")
-            }
-            if (Regex("\\b(?:int|char|short|long|float|double|void)\\s+\\w+\\s*\\([^;]*\\)\\s*\\{").containsMatchIn(code) &&
-                !code.contains("return") && Regex("\\b(int|char|short|long|float|double)\\s+\\w+\\s*\\(").containsMatchIn(code)) {
-                out += CodeDiagnostic(lineNo, 1, CodeDiagnostic.Severity.WARNING, "La función parece no contener return; comprueba su tipo de retorno.")
-            }
-            if (Regex("\\b(?:TODO|FIXME)\\b").containsMatchIn(code)) {
-                out += CodeDiagnostic(lineNo, 1, CodeDiagnostic.Severity.INFO, "Hay una tarea pendiente en este archivo.")
+            if (Regex("""\bprintf\s*\(""").containsMatchIn(code) && !hasStdIoInclude) {
+                out += CodeDiagnostic(
+                    lineNo,
+                    1,
+                    CodeDiagnostic.Severity.INFO,
+                    "Comprueba que has incluido <stdio.h> si utilizas printf."
+                )
             }
             if (code.trimEnd().endsWith("=") || code.trimEnd().endsWith("+")) {
-                out += CodeDiagnostic(lineNo, code.length, CodeDiagnostic.Severity.WARNING, "La expresión parece estar incompleta.")
+                out += CodeDiagnostic(
+                    lineNo,
+                    code.length,
+                    CodeDiagnostic.Severity.WARNING,
+                    "La expresión parece estar incompleta."
+                )
             }
-            if (Regex("\\b(?:int|char|short|long|float|double|void)\\s*;").containsMatchIn(code)) {
-                out += CodeDiagnostic(lineNo, 1, CodeDiagnostic.Severity.ERROR, "Declaración de tipo sin nombre de variable.")
+            if (Regex("""\b(?:int|char|short|long|float|double|void)\s*;""").containsMatchIn(code)) {
+                out += CodeDiagnostic(
+                    lineNo,
+                    1,
+                    CodeDiagnostic.Severity.ERROR,
+                    "Declaración de tipo sin nombre de variable."
+                )
             }
         }
 
         if (inBlockComment) {
-            out += CodeDiagnostic(lines.size, 1, CodeDiagnostic.Severity.ERROR, "Comentario de bloque sin cerrar.")
+            out += CodeDiagnostic(
+                lines.size,
+                1,
+                CodeDiagnostic.Severity.ERROR,
+                "Comentario de bloque sin cerrar."
+            )
         }
-        if (braces > 0) out += CodeDiagnostic(lines.size, 1, CodeDiagnostic.Severity.ERROR, "Faltan $braces llave(s) de cierre.")
-        if (parens > 0) out += CodeDiagnostic(lines.size, 1, CodeDiagnostic.Severity.ERROR, "Faltan $parens paréntesis de cierre.")
-        if (brackets > 0) out += CodeDiagnostic(lines.size, 1, CodeDiagnostic.Severity.ERROR, "Faltan $brackets corchete(s) de cierre.")
-        if (out.isEmpty()) out += CodeDiagnostic(1, 1, CodeDiagnostic.Severity.INFO, "No se han encontrado problemas mediante las comprobaciones rápidas.")
+        delimiters.forEach { opening ->
+            val closing = when (opening.char) {
+                '{' -> '}'
+                '(' -> ')'
+                else -> ']'
+            }
+            out += CodeDiagnostic(
+                opening.line,
+                opening.column,
+                CodeDiagnostic.Severity.ERROR,
+                "Falta el cierre '$closing' para '" + opening.char + "'."
+            )
+        }
+        if (out.isEmpty()) {
+            out += CodeDiagnostic(
+                1, 1, CodeDiagnostic.Severity.INFO,
+                "No se han encontrado problemas mediante las comprobaciones rápidas."
+            )
+        }
         return out
     }
 
@@ -73,7 +112,10 @@ object CppDiagnostics {
      * Removes comments and quoted literals without interpreting their contents as code.
      * Block-comment state is returned so comments can span multiple source lines.
      */
-    private fun stripCommentsAndLiterals(line: String, initiallyInBlockComment: Boolean): Pair<String, Boolean> {
+    private fun stripCommentsAndLiterals(
+        line: String,
+        initiallyInBlockComment: Boolean
+    ): Pair<String, Boolean> {
         val output = StringBuilder(line.length)
         var inBlockComment = initiallyInBlockComment
         var index = 0
