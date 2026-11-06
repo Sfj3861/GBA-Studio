@@ -36,7 +36,7 @@ object GbaPaletteQuantizer {
             .toList()
 
         val palette = listOf(0) + selected
-        val indices = IntArray(source.size)
+        val indices = source
         if (selected.isNotEmpty()) {
             for (i in source.indices) {
                 val color = source[i]
@@ -59,6 +59,8 @@ object GbaPaletteQuantizer {
                     indices[i] = bestIndex
                 }
             }
+        } else {
+            indices.fill(0)
         }
         return QuantizedGbaPixels(palette, indices, uniqueColors)
     }
