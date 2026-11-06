@@ -82,8 +82,18 @@ class ArmDisassemblerTest {
         assertEquals("r0, #0x00000001", decoded.operands)
     }
 
-    @Test fun decodesThumbBxAndKeepsReservedVariantAsDataRepeated() {
-        assertEquals("BX", ArmDisassembler.decodeThumb(0x4700, 0x08000000).mnemonic)
-        assertEquals(".hword", ArmDisassembler.decodeThumb(0x4780, 0x08000000).mnemonic)
+    @Test fun decodesThumbThreeOperandAddAndSubtract() {
+        val add = ArmDisassembler.decodeThumb(0x1CC8, 0x08000000)
+        val subtract = ArmDisassembler.decodeThumb(0x1E88, 0x08000000)
+        assertEquals("ADDS", add.mnemonic)
+        assertEquals("r0, r1, #3", add.operands)
+        assertEquals("SUBS", subtract.mnemonic)
+        assertEquals("r0, r1, #2", subtract.operands)
+    }
+
+    @Test fun decodesArmImmediateOffsetLoad() {
+        val decoded = ArmDisassembler.decodeArm(0xE5910004.toInt(), 0x08000000)
+        assertEquals("LDR", decoded.mnemonic)
+        assertEquals("r0, [r1, #4]", decoded.operands)
     }
 }
