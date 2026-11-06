@@ -88,7 +88,8 @@ object GbaLinker {
             val placement = placements[index]
             val relocated = section.data.copyOf()
             section.relocations.forEach { relocation ->
-                require(relocation.offset >= 0 && relocation.offset + 4 <= relocated.size) {
+                val relocationWidth = if (relocation.type == GbaRelocation.Type.THUMB_BRANCH11) 2 else 4
+                require(relocation.offset >= 0 && relocation.offset + relocationWidth <= relocated.size) {
                     "Relocación fuera de rango en ${section.name}."
                 }
                 val target = symbolAddresses[relocation.symbol]
@@ -99,7 +100,7 @@ object GbaLinker {
                     GbaRelocation.Type.REL32 -> write32(relocated, relocation.offset, target + relocation.addend - place)
                     GbaRelocation.Type.ARM_BRANCH24 -> {
                         val instruction = read32(relocated, relocation.offset)
-                        require(instruction ushr 24 == 0xEA || instruction ushr 24 == 0xEB) {
+                        require(instruction and 0x0E000000 == 0x0A000000) {
                             "ARM_BRANCH24 requiere una instrucción B/BL."
                         }
                         val displacement = target + relocation.addend - (place + 8)
