@@ -1,5 +1,6 @@
 package com.sfj3861.gbastudio
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -8,11 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -22,11 +25,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -190,7 +196,11 @@ fun AssetStudioScreen() {
     val context = LocalContext.current
     var palette by remember { mutableStateOf<ByteArray?>(null) }
     var tiles by remember { mutableStateOf<ByteArray?>(null) }
+    var preview by remember { mutableStateOf<Bitmap?>(null) }
     var summary by remember { mutableStateOf("Importa una imagen PNG, JPG o WebP.") }
+    DisposableEffect(preview) {
+        onDispose { preview?.takeUnless { it.isRecycled }?.recycle() }
+    }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -205,16 +215,24 @@ fun AssetStudioScreen() {
                 ?: error("No se pudo decodificar la imagen.")
         }.onSuccess { bitmap ->
             try {
-                runCatching { AssetStudio.convertTo4Bpp(bitmap) }
-                    .onSuccess { result ->
-                        palette = AssetStudio.paletteBytes(result.colors)
-                        tiles = result.tiles4bpp
-                        summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles 8×8: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
-                    }.onFailure { summary = "Error: ${it.message}"; palette = null; tiles = null }
+                runCatching {
+                    val result = AssetStudio.convertTo4Bpp(bitmap)
+                    result to AssetStudio.renderPreview(result)
+                }.onSuccess { (result, rendered) ->
+                    palette = AssetStudio.paletteBytes(result.colors)
+                    tiles = result.tiles4bpp
+                    preview = rendered
+                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles 8×8: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
+                }.onFailure {
+                    summary = "Error: ${it.message}"
+                    palette = null
+                    tiles = null
+                    preview = null
+                }
             } finally {
                 bitmap.recycle()
             }
-        }.onFailure { summary = "Error al importar: ${it.message}"; palette = null; tiles = null }
+        }.onFailure { summary = "Error al importar: ${it.message}"; palette = null; tiles = null; preview = null }
     }
     val saveTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null && tiles != null) runCatching {
@@ -233,6 +251,16 @@ fun AssetStudioScreen() {
         Text("Convierte imágenes en tiles 4bpp de 8×8 y paletas BGR555 para gráficos GBA.")
         Button(onClick = { imagePicker.launch("image/*") }) { Text("Importar imagen") }
         Text(summary)
+        preview?.let { bitmap ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Image(
+                    bitmap.asImageBitmap(),
+                    contentDescription = "Vista previa de los tiles GBA convertidos",
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp).padding(12.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(enabled = tiles != null, onClick = { saveTiles.launch("tiles.4bpp") }) { Text("Exportar tiles") }
             OutlinedButton(enabled = palette != null, onClick = { savePalette.launch("palette.pal") }) { Text("Exportar paleta") }
