@@ -57,6 +57,7 @@ class ProjectRepository(context: Context) {
     }
 
     fun rename(project: GbaProject, newName: String) {
+        requireOwned(project)
         val clean = newName.trim()
         require(clean.isNotEmpty()) { "El nombre no puede estar vacío." }
         require(clean.length <= 40) { "El nombre no puede superar 40 caracteres." }
@@ -131,6 +132,8 @@ class ProjectRepository(context: Context) {
             require(manifest.isFile) { "El ZIP no contiene project.json; no parece un proyecto GBA Studio." }
             val metadata = JSONObject(manifest.readText(Charsets.UTF_8))
             val name = metadata.optString("name").trim().ifBlank { "Proyecto importado" }.take(40)
+            metadata.put("name", name)
+            manifest.writeText(metadata.toString(2), Charsets.UTF_8)
             val project = GbaProject(id, name, dir, System.currentTimeMillis())
             writeIndex(list() + project)
             return project
