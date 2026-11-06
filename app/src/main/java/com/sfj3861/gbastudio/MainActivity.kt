@@ -47,7 +47,11 @@ private enum class Destination(val label: String, val marker: String) {
     CODE("Code Studio", "</>"),
     PORTING("Portabilidad", "⇄"),
     ROM("ROM Analyzer", "▤"),
-    ASSETS("Recursos", "▦"),
+    ASSETS("Asset Studio", "▦"),
+    DISASSEMBLER("Desensamblador", "⌘"),
+    LINKER("Linker", "⇧"),
+    DIAGNOSTICS("Diagnósticos", "✓"),
+    EMULATOR("Emulador", "▶"),
     TUTORIALS("Tutoriales", "?"),
     AI("ChatGPT", "✦")
 }
@@ -175,6 +179,11 @@ private fun DestinationContent(destination: Destination, navigate: (Destination)
         Destination.TUTORIALS -> TutorialScreen()
         Destination.AI -> AiScreen()
         Destination.ROM -> RomAnalyzerScreen()
+        Destination.DISASSEMBLER -> DisassemblerScreen()
+        Destination.LINKER -> LinkerScreen()
+        Destination.DIAGNOSTICS -> DiagnosticsScreen()
+        Destination.ASSETS -> AssetStudioScreen()
+        Destination.EMULATOR -> EmulatorScreen()
         else -> ModulePlaceholder(destination)
     }
 }
@@ -219,7 +228,11 @@ private fun HomeScreen(navigate: (Destination) -> Unit) {
             Triple(Destination.CODE, "Code Studio", "Editor C/C++ y futura compilación ARM."),
             Triple(Destination.PORTING, "Portabilidad", "Preparación de proyectos para GBA."),
             Triple(Destination.ROM, "ROM Analyzer", "Inspección de cabeceras y estructura ROM."),
-            Triple(Destination.ASSETS, "Recursos", "Sprites, tiles, paletas y audio.")
+            Triple(Destination.ASSETS, "Asset Studio", "Importa imágenes y conviértelas a tiles 4bpp y paletas GBA."),
+            Triple(Destination.DISASSEMBLER, "Desensamblador", "Inspecciona instrucciones ARM y Thumb de una ROM."),
+            Triple(Destination.LINKER, "Linker", "Empaqueta secciones raw y genera una imagen ROM experimental."),
+            Triple(Destination.DIAGNOSTICS, "Diagnósticos", "Busca problemas frecuentes en código C/C++."),
+            Triple(Destination.EMULATOR, "Emulador", "Prueba instrucciones ARM/Thumb paso a paso.")
         )
         modules.chunked(2).forEach { moduleRow ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -247,8 +260,12 @@ private fun HomeScreen(navigate: (Destination) -> Unit) {
                 Text("Estado del entorno", fontWeight = FontWeight.Bold)
                 StatusLine("Interfaz Android", "Inicial")
                 StatusLine("Puente nativo C++", "Inicial")
+                StatusLine("Desensamblador ARM/Thumb", "Experimental")
+                StatusLine("Linker / ROM packer", "Experimental")
+                StatusLine("Diagnósticos C/C++", "Heurísticos")
+                StatusLine("Asset Studio", "Tiles 4bpp")
+                StatusLine("Emulador", "CPU parcial")
                 StatusLine("Compilador GBA", "Pendiente")
-                StatusLine("Emulador integrado", "Pendiente")
                 StatusLine("Asistente ChatGPT", "Conexión pendiente")
             }
         }
