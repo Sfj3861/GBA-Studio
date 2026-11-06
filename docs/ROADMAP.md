@@ -5,7 +5,7 @@
 - [x] Responsive compact/tablet navigation
 - [x] Introductory tutorial
 - [x] Native C++/JNI bootstrap
-- [ ] Verify Android build on CI and Lenovo Yoga Tab Plus
+- [ ] Green CI build and physical-device verification
 
 ## Milestone 1 — Project workspace
 - [x] Project creation, open, rename and delete
@@ -15,38 +15,49 @@
 
 ## Milestone 2 — Code and compiler
 - [x] Basic C/C++/text editor with file creation and autosave
-- [x] Basic C/C++ syntax highlighting
-- [ ] Code completion and compiler diagnostics
-- [ ] Local ARM/Thumb cross-toolchain integration
-- [ ] GBA linker script and startup/runtime support
-- [ ] Build output, diagnostics and reproducible builds
-- [ ] Build a minimal homebrew ROM
+- [x] Basic syntax highlighting
+- [x] First-pass C/C++ structural diagnostics (heuristic)
+- [ ] Clang-based diagnostics and compiler error mapping
+- [ ] Code completion and symbol navigation
+- [ ] ARM7TDMI bare-metal compiler integration
+- [x] Initial GNU ld GBA memory-map script
+- [ ] ELF linking, symbol resolution and relocation support
+- [ ] Startup code, runtime libraries and valid ROM header pipeline
+- [ ] Reproducible end-to-end build of a homebrew ROM
 
 ## Milestone 3 — ROM inspection
-- [x] ROM header parser and validation (metadata fields and header checksum)
-- [x] Read-only paged hexadecimal viewer for the selected ROM
-- [ ] ARM/Thumb disassembly
+- [x] ROM header parser and checksum validation
+- [x] Read-only paged hexadecimal viewer
+- [x] Initial ARM/Thumb disassembler for a limited instruction subset
+- [ ] Complete ARM7TDMI ARM/Thumb decoding coverage
 - [ ] Symbols, cross-references and function analysis
 - [ ] Export analysis reports
-- [x] JVM unit tests for header parsing and checksum
 
 ## Milestone 4 — Assets and porting
-- [ ] Sprite, tile, palette and tilemap tools
-- [ ] Supported graphics/audio conversion pipelines
-- [ ] Source project compatibility report
-- [ ] Porting checklist and helper transformations
+- [x] Raster image import
+- [x] 8x8 4bpp tile conversion
+- [x] BGR555 palette export
+- [ ] Tilemap editor and preview
+- [ ] Sprite/OAM editor and animation timeline
+- [ ] Audio conversion pipeline
+- [ ] Palette optimization and dithering
+- [ ] Source project compatibility report and porting helpers
 
 ## Milestone 5 — Emulation and debugging
-- [ ] Integrate a license-compatible GBA emulator core
-- [ ] Run local homebrew ROMs
-- [ ] Breakpoints, logs and memory inspection where supported
+- [x] Experimental ARM/Thumb instruction stepper
+- [ ] Full ARM7TDMI execution and memory bus
+- [ ] GBA PPU/video rendering
+- [ ] Timers, DMA, interrupts, keypad and memory-mapped peripherals
+- [ ] Audio engine
+- [ ] License-reviewed full GBA emulator core integration
+- [ ] Breakpoints, logs and memory inspection
 
 ## Milestone 6 — ChatGPT integration
 - [ ] Optional OpenAI API configuration
 - [ ] Secure secret storage; no embedded API keys
 - [ ] Explicit per-project context sharing
 - [ ] Tool permission prompts and diff review
-- [ ] Offline fallback for all non-AI workflows
+- [ ] Offline fallback for non-AI workflows
 
 ## Quality gates
 
