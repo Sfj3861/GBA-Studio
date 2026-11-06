@@ -17,7 +17,7 @@ class GbaAssetBundleExporterTest {
             width = 16,
             height = 8
         )
-        val map = GbaTileMapBuilder.build(assets)
+        val map = GbaTileMapBuilder.build(assets, paletteBank = 3)
         val zipBytes = GbaAssetBundleExporter.createZip(assets, map)
         val files = linkedMapOf<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
@@ -38,6 +38,8 @@ class GbaAssetBundleExporterTest {
         assertTrue(String(files.getValue("asset.json")).contains("\"screenSizeCode\": 0"))
         assertTrue(String(files.getValue("asset.json")).contains("\"uniqueTileCount\": 2"))
         assertTrue(String(files.getValue("asset.h")).contains("#define GBA_BG_SIZE_CODE 0"))
+        assertTrue(String(files.getValue("asset.h")).contains("#define GBA_BG_PALETTE_BANK 3"))
+        assertTrue(String(files.getValue("asset.json")).contains("\"paletteBank\": 3"))
     }
 
     @Test(expected = IllegalArgumentException::class)
