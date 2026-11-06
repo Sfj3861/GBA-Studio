@@ -8,13 +8,14 @@
 - [ ] Verify Android build on CI and Lenovo Yoga Tab Plus
 
 ## Milestone 1 — Project workspace
-- [ ] Project creation, open, rename and delete
-- [ ] Storage Access Framework import/export
-- [ ] Project manifest and GBA templates
+- [x] Project creation, open, rename and delete
+- [x] Storage Access Framework ZIP import/export
+- [x] Project manifest and GBA C starter template
 - [ ] Persistent tutorial progress
 
 ## Milestone 2 — Code and compiler
-- [ ] Code editor with syntax highlighting
+- [x] Basic C/C++/text editor with file creation and autosave
+- [ ] Syntax highlighting, code completion and diagnostics
 - [ ] Local ARM/Thumb cross-toolchain integration
 - [ ] GBA linker script and startup/runtime support
 - [ ] Build output, diagnostics and reproducible builds
