@@ -48,6 +48,7 @@ fun ProjectManagerScreen(repository: ProjectRepository) {
     var dirty by remember { mutableStateOf(false) }
     var saveState by remember { mutableStateOf("Sin cambios") }
     var showCreate by remember { mutableStateOf(false) }
+    var showNewFile by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<GbaProject?>(null) }
     var deleting by remember { mutableStateOf<GbaProject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -57,6 +58,12 @@ fun ProjectManagerScreen(repository: ProjectRepository) {
     fun loadFile(project: GbaProject, relativePath: String) {
         scope.launch {
             try {
+                val previousFile = selectedFile
+                val previousDraft = draft
+                val previousDirty = dirty
+                if (previousDirty && activeProject != null && previousFile != null) {
+                    withContext(Dispatchers.IO) { repository.writeText(activeProject!!, previousFile, previousDraft) }
+                }
                 val text = withContext(Dispatchers.IO) { repository.readText(project, relativePath) }
                 activeProject = project
                 selectedFile = relativePath
@@ -145,15 +152,27 @@ fun ProjectManagerScreen(repository: ProjectRepository) {
             val project = activeProject!!
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = {
-                    activeProject = null
-                    selectedFile = null
-                    dirty = false
-                    refresh()
+                    scope.launch {
+                        try {
+                            val file = selectedFile
+                            val opened = activeProject
+                            if (dirty && file != null && opened != null) {
+                                withContext(Dispatchers.IO) { repository.writeText(opened, file, draft) }
+                            }
+                            activeProject = null
+                            selectedFile = null
+                            dirty = false
+                            refresh()
+                        } catch (e: Exception) {
+                            error = e.message ?: "No se pudieron guardar los cambios."
+                        }
+                    }
                 }) { Text("Volver") }
                 Column(Modifier.weight(1f)) {
                     Text(project.name, style = MaterialTheme.typography.headlineSmall)
                     Text("Explorador y editor de archivos")
                 }
+                Button(onClick = { showNewFile = true }) { Text("Nuevo archivo") }
             }
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.width(190.dp).heightIn(min = 100.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -206,6 +225,23 @@ fun ProjectManagerScreen(repository: ProjectRepository) {
         }
     }
 
+    if (showNewFile && activeProject != null) {
+        ProjectNameDialog("Nuevo archivo", "Ruta (ej. src/player.c)", "Crear", { showNewFile = false }) { relativePath ->
+            val project = activeProject
+            if (project != null) {
+                scope.launch {
+                    try {
+                        withContext(Dispatchers.IO) { repository.createTextFile(project, relativePath.trim()) }
+                        showNewFile = false
+                        loadFile(project, relativePath.trim())
+                        error = null
+                    } catch (e: Exception) {
+                        error = e.message ?: "No se pudo crear el archivo."
+                    }
+                }
+            }
+        }
+    }
     if (showCreate) ProjectNameDialog("Nuevo proyecto", "Nombre del proyecto", "Crear", { showCreate = false }) { name ->
         scope.launch {
             try { withContext(Dispatchers.IO) { repository.create(name) }; refresh(); error = null }
