@@ -21,11 +21,12 @@
 - [ ] Build a minimal homebrew ROM
 
 ## Milestone 3 — ROM inspection
-- [ ] ROM header parser and validation
+- [x] ROM header parser and validation (metadata fields and header checksum)
 - [ ] Hex viewer and section map
 - [ ] ARM/Thumb disassembly
 - [ ] Symbols, cross-references and function analysis
 - [ ] Export analysis reports
+- [x] JVM unit tests for header parsing and checksum
 
 ## Milestone 4 — Assets and porting
 - [ ] Sprite, tile, palette and tilemap tools
