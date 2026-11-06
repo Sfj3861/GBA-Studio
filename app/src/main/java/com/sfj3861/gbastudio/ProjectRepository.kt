@@ -74,7 +74,7 @@ class ProjectRepository(context: Context) {
             "Extensión no compatible."
         }
         check(!file.exists()) { "Ya existe un archivo con ese nombre." }
-        check(file.parentFile?.mkdirs() != false) { "No se pudo crear la carpeta." }
+        check(file.parentFile?.let { it.isDirectory || it.mkdirs() } ?: false) { "No se pudo crear la carpeta." }
         check(file.createNewFile()) { "No se pudo crear el archivo." }
     }
 
