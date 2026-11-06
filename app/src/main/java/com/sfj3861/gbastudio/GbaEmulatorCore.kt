@@ -133,7 +133,7 @@ class GbaEmulatorCore(
                 val displacement = signExtend((op and 0x7FF) shl 1, 12)
                 regs[15] = pc + 4 + displacement
             }
-            op and 0xFF00 == 0x4700 -> {
+            op and 0xFF87 == 0x4700 -> {
                 val target = regs[(op ushr 3) and 15]
                 thumb = target and 1 != 0
                 setFlag(T_FLAG, thumb)
