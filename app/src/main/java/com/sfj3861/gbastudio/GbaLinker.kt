@@ -41,7 +41,7 @@ object GbaLinker {
         var iwramCursor = IWRAM_BASE
         val placements = mutableListOf<LinkedSection>()
         sections.forEach { section ->
-            require(section.alignment > 0 && section.alignment <= 4096 && section.alignment and (section.alignment - 1) == 0) {
+            require(section.alignment > 0 && section.alignment <= 4096 && (section.alignment and (section.alignment - 1)) == 0) {
                 "Alineación inválida en ${section.name}."
             }
             when (section.region) {
@@ -79,7 +79,7 @@ object GbaLinker {
         // until the user supplies a licensed/valid header template.
         var sum = 0
         for (i in 0xA0..0xBC) sum += image[i].toInt() and 0xFF
-        image[0xBD] = (-(sum + 0x19) and 0xFF).toByte()
+        image[0xBD] = ((-(sum + 0x19)) and 0xFF).toByte()
         return GbaLinkResult(
             image,
             placements,
