@@ -1,64 +1,59 @@
 # GBA Studio
 
-**GBA Studio** is a local-first Android development environment for creating, studying, porting and testing Game Boy Advance software.
+**GBA Studio** is a local-first Android workspace for developing and studying Game Boy Advance software. The interface is designed for tablets and compact Android devices, with the Lenovo Yoga Tab Plus as the primary usability target.
 
-The primary development and usability target is the Lenovo Yoga Tab Plus. The interface is designed to adapt to other Android devices too.
+## Current implementation
 
-## Project goals
+- Kotlin + Jetpack Compose application shell and responsive navigation.
+- Introductory tutorial.
+- Local project manager: create, open, rename and delete projects.
+- Basic C/C++ and text editor with file creation, lightweight syntax highlighting, manual save and autosave.
+- ZIP project import/export through Android's Storage Access Framework, with path traversal and uncompressed-size checks.
+- GBA ROM header analyzer, checksum validation and paged hexadecimal viewer.
+- ARM/Thumb disassembler for a documented subset of common instructions; unknown opcodes are displayed as data.
+- C/C++ quick diagnostics for common structural mistakes. These are heuristics, not compiler diagnostics.
+- Experimental raw-section ROM image builder, GBA memory-region placement and GNU ld memory-map script.
+- Asset Studio image import and conversion to 8x8 4bpp tile data and BGR555 palette bytes.
+- Experimental ARM7TDMI instruction stepper with a small ARM/Thumb instruction subset.
+- CMake/NDK native library and JNI bootstrap.
+- JVM tests for ROM headers, disassembly, diagnostics and raw ROM image generation.
 
-- Native Android interface optimized for tablets and compact screens.
-- C and C++ development workflow targeting the GBA ARM7TDMI.
-- Local ARM toolchain and GBA ROM generation.
-- ROM inspection, ARM/Thumb disassembly and research-oriented reconstruction.
-- Asset tools for sprites, tiles, palettes, maps and audio.
-- Porting workspace for projects whose source and licenses permit adaptation.
-- Integrated emulator and debugging tools.
-- Optional ChatGPT assistance with explicit project-context permissions.
-- Built-in practical tutorials for beginners.
+## Important limitations
 
-## Current status: Android foundation
+This is an evolving development build, not yet a complete GBA IDE.
 
-The initial foundation includes:
+- **Compiler:** a bare-metal ARM7TDMI C/C++ toolchain is not integrated yet.
+- **Linker:** the in-app builder places raw binary sections and fills selected header fields. It does not link ELF object files, resolve symbols or apply relocations. The GNU ld memory-map script is an initial integration artifact, not a complete toolchain.
+- **ROM bootability:** the experimental image builder does not include the GBA BIOS logo/header template or startup runtime. Its output is not guaranteed to boot on hardware or in an emulator.
+- **Disassembler:** decoding coverage is partial; unknown instructions remain \`.word\` / \`.hword\`.
+- **Diagnostics:** fast heuristic checks only; use a real compiler for authoritative errors.
+- **Asset Studio:** currently converts raster images to tiled 4bpp and BGR555 palette data. Tilemaps, animation, audio and advanced palette optimization remain future work.
+- **Emulator:** currently a CPU instruction stepper for a small subset. It does not emulate the PPU/video, audio, DMA, timers, interrupts, memory-mapped peripherals or full ARM7TDMI behavior. It cannot yet run complete GBA games.
+- **ChatGPT:** API integration is not connected yet.
 
-- Kotlin and Jetpack Compose application shell.
-- Responsive navigation for compact and tablet layouts.
-- Introductory tutorial screen.
-- Persistent local project manager: create, list, open, rename and delete projects.
-- Basic in-app source editor for C/C++ and text files, lightweight syntax highlighting, new file creation, manual save and delayed autosave.
-- ZIP project import/export through Android's system document picker, with path traversal and uncompressed-size checks.
-- Starter C project template with `src/main.c`, `assets/`, `README.md` and `project.json`.
-- Local GBA ROM header analyzer using Android's document picker.
-- Header metadata extraction and checksum validation with JVM unit tests.
-- Placeholder module screens that clearly identify planned functionality.
-- CMake/NDK native library and JNI bootstrap function.
-- Android minimum SDK 29, Java 17 and compile SDK 35.
-
-**Important:** the local project manager and ROM header analyzer are implemented as initial tools. The GBA compiler, decompiler, porting tools, asset editors, emulator and ChatGPT API connection are not implemented yet. The current UI is a foundation, not a finished IDE.
+The Android build has not yet been confirmed green on CI or tested on physical hardware. No APK release is claimed by this repository state.
 
 ## Build requirements
 
 - Android Studio with Android SDK 35.
 - JDK 17.
-- Android NDK (side-by-side).
+- Android NDK side-by-side.
 - CMake 3.22.1.
-- Gradle 8.9, as required by Android Gradle Plugin 8.7.3.
+- Gradle 8.9 / Android Gradle Plugin 8.7.3.
 
-Open this repository in Android Studio, allow Gradle sync, install the requested SDK/NDK components, then run the app configuration on an Android device or emulator.
+Open the project in Android Studio, sync Gradle, install the requested SDK/NDK components and run the app on an Android device or emulator.
 
-## Architecture
+## Repository layout
 
-- app/src/main/java: Kotlin and Compose UI.
-- app/src/main/cpp: native C++ core and JNI boundary.
-- core (planned): compiler, ROM analysis, disassembly, porting, assets, emulation and debugging modules.
-
-Native tools will be integrated as pinned, license-reviewed dependencies. Core workflows are intended to work offline. ChatGPT features will be optional and require network access and separately configured API access; no API secret will be embedded in the APK.
+- \`app/src/main/java\`: Kotlin and Compose UI.
+- \`app/src/main/cpp\`: native C++ core and JNI boundary.
+- \`toolchain/gba/gba.ld\`: initial GNU ld memory map for GBA.
+- \`docs/ROADMAP.md\`: implementation roadmap.
 
 ## Legal notes
 
-Only import, modify, decompile or distribute software and ROMs that you own or are authorized to analyze. GBA Studio will not bundle commercial ROMs, proprietary game assets or copyrighted source code.
-
-Third-party components will retain their own licenses and notices.
+Only inspect, modify, decompile or distribute software and ROMs that you own or are authorized to analyze. The repository does not bundle commercial ROMs or proprietary game assets. Third-party dependencies must retain their own license notices.
 
 ## License
 
-Original project code is distributed under the MIT License. Third-party dependencies are governed by their respective licenses.
+Original project code is distributed under the MIT License. Third-party components are governed by their respective licenses.
