@@ -52,7 +52,7 @@ object GbaAssetBundleExporter {
         #define GBA_BG_MAP_WIDTH_TILES ${map.widthTiles}
         #define GBA_BG_MAP_HEIGHT_TILES ${map.heightTiles}
         #define GBA_BG_SIZE_CODE ${map.sizeCode}
-        #define GBA_BG_PALETTE_BANK 0
+        #define GBA_BG_PALETTE_BANK ${map.paletteBank}
         #define GBA_BG_MAP_ENTRY_COUNT ${map.entries.size}
     """.trimIndent() + "\n"
 
@@ -80,7 +80,7 @@ object GbaAssetBundleExporter {
             "screenSizeCode": ${map.sizeCode},
             "entryFormat": "GBA-text-background-16bit",
             "screenblockOrder": "top-left, top-right, bottom-left, bottom-right",
-            "paletteBank": 0,
+            "paletteBank": ${map.paletteBank},
             "uniqueTilesFile": "tiles.4bpp"
           }
         }
