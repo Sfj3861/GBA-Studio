@@ -29,7 +29,7 @@ class GbaAssetBundleExporterTest {
         }
 
         assertEquals(
-            setOf("tiles.4bpp", "palette.pal", "background.map", "asset.h", "asset.json", "README.txt"),
+            setOf("tiles.4bpp", "palette.pal", "background.map", "asset.h", "asset.c", "asset.json", "README.txt"),
             files.keys
         )
         assertArrayEquals(map.uniqueTiles4bpp, files["tiles.4bpp"])
@@ -39,7 +39,31 @@ class GbaAssetBundleExporterTest {
         assertTrue(String(files.getValue("asset.json")).contains("\"uniqueTileCount\": 2"))
         assertTrue(String(files.getValue("asset.h")).contains("#define GBA_BG_SIZE_CODE 0"))
         assertTrue(String(files.getValue("asset.h")).contains("#define GBA_BG_PALETTE_BANK 3"))
+        assertTrue(String(files.getValue("asset.h")).contains("extern const uint16_t gba_asset_map[1024]"))
         assertTrue(String(files.getValue("asset.json")).contains("\"paletteBank\": 3"))
+        assertTrue(String(files.getValue("README.txt")).contains("palette bank 3"))
+        val cSource = String(files.getValue("asset.c"))
+        assertTrue(cSource.contains("#include \"asset.h\""))
+        assertTrue(cSource.contains("const uint8_t gba_asset_tiles[32]"))
+        assertTrue(cSource.contains("const uint16_t gba_asset_palette[3]"))
+        assertTrue(cSource.contains("const uint16_t gba_asset_map[1024]"))
+    }
+
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsMapBytesThatDoNotMatchEntries() {
+        val assets = GbaPaletteResult(listOf(0, 1), ByteArray(32), 1, emptyList(), width = 8, height = 8)
+        val map = GbaTileMapBuilder.build(assets).copy(bytes = ByteArray(2048))
+        GbaAssetBundleExporter.createZip(assets, map)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsMapThatReferencesMissingTile() {
+        val assets = GbaPaletteResult(listOf(0, 1), ByteArray(32), 1, emptyList(), width = 8, height = 8)
+        val valid = GbaTileMapBuilder.build(assets)
+        val entries = valid.entries.copyOf().also { it[0] = 1 }
+        val bytes = valid.bytes.copyOf().also { it[0] = 1 }
+        GbaAssetBundleExporter.createZip(assets, valid.copy(entries = entries, bytes = bytes))
     }
 
     @Test(expected = IllegalArgumentException::class)
