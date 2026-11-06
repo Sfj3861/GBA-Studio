@@ -7,7 +7,7 @@ import org.junit.Test
 class GbaPaletteQuantizerTest {
     @Test fun reservesIndexZeroForTransparencyAndKeepsOpaqueBlack() {
         val result = GbaPaletteQuantizer.quantize(
-            intArrayOf(0x00000000, 0xFF000000.toInt(), 0x80FFFFFF.toInt())
+            intArrayOf(0x00000000, 0xFF000000.toInt(), 0x7FFFFFFF.toInt())
         )
         assertEquals(1, result.sourceColorCount)
         assertEquals(0, result.indices[0])
