@@ -3,14 +3,21 @@ package com.sfj3861.gbastudio
 import android.graphics.Bitmap
 import android.graphics.Color
 
-data class GbaPaletteResult(val colors: List<Int>, val tiles4bpp: ByteArray, val tileCount: Int, val warnings: List<String>)
+data class GbaPaletteResult(
+    val colors: List<Int>,
+    val tiles4bpp: ByteArray,
+    val tileCount: Int,
+    val warnings: List<String>,
+    val sourceColorCount: Int = (colors.size - 1).coerceAtLeast(0)
+)
 
 object AssetStudio {
     const val TILE_SIZE = 8
+    private const val MAX_PIXELS = 16 * 1024 * 1024
 
-    /** Converts an image to 4bpp tiled data and a 16-colour BGR555 palette. */
+    /** Converts an image to 4bpp tiled data and a BGR555 palette with transparent index 0. */
     fun convertTo4Bpp(bitmap: Bitmap): GbaPaletteResult {
-        require(bitmap.width > 0 && bitmap.height > 0)
+        require(bitmap.width > 0 && bitmap.height > 0) { "La imagen está vacía." }
         val warnings = mutableListOf<String>()
         if (bitmap.width % TILE_SIZE != 0 || bitmap.height % TILE_SIZE != 0) {
             warnings += "La imagen no es múltiplo de 8; los píxeles sobrantes se recortan."
@@ -18,36 +25,33 @@ object AssetStudio {
         val width = bitmap.width / TILE_SIZE * TILE_SIZE
         val height = bitmap.height / TILE_SIZE * TILE_SIZE
         require(width > 0 && height > 0) { "La imagen debe medir al menos 8×8 píxeles." }
-        val palette = linkedMapOf<Int, Int>()
-        palette[0] = 0 // GBA sprite convention: palette index 0 is transparent.
-        val indices = IntArray(width * height)
-        for (y in 0 until height) for (x in 0 until width) {
-            val argb = bitmap.getPixel(x, y)
-            val color = if (Color.alpha(argb) < 128) -1 else {
-                val r = (Color.red(argb) shr 3) and 31
-                val g = (Color.green(argb) shr 3) and 31
-                val b = (Color.blue(argb) shr 3) and 31
-                r or (g shl 5) or (b shl 10)
-            }
-            if (color >= 0) {
-                val key = if (color == 0) 0x10000 else color
-                if (!palette.containsKey(key)) palette[key] = palette.size
-                indices[y * width + x] = palette.getValue(key)
-            } else indices[y * width + x] = 0
+        require(width.toLong() * height <= MAX_PIXELS) { "La imagen recortada supera el límite de 16 megapíxeles." }
+
+        val argb = IntArray(width * height)
+        bitmap.getPixels(argb, 0, width, 0, 0, width, height)
+        val quantized = GbaPaletteQuantizer.quantize(argb)
+        if (quantized.sourceColorCount > 15) {
+            warnings += "Se han encontrado ${quantized.sourceColorCount} colores visibles; se han reducido a 15 mediante proximidad de color."
         }
-        if (palette.size > 16) warnings += "La imagen supera los 15 colores visibles disponibles cuando se reserva el índice 0 para transparencia; los colores posteriores se aproximan."
-        val colors = palette.keys.take(16).map { if (it == 0x10000) 0 else it }
-        val tileBytes = ByteArray((width / 8) * (height / 8) * 32)
+
+        val tilesWide = width / TILE_SIZE
+        val tilesHigh = height / TILE_SIZE
+        val tileCount = tilesWide * tilesHigh
+        val tileBytes = ByteArray(tileCount * 32)
         var tileIndex = 0
-        for (ty in 0 until height step 8) for (tx in 0 until width step 8) {
-            for (py in 0 until 8) for (px in 0 until 8 step 2) {
-                val a = indices[(ty + py) * width + tx + px].coerceAtMost(15)
-                val b = indices[(ty + py) * width + tx + px + 1].coerceAtMost(15)
-                tileBytes[tileIndex * 32 + py * 4 + px / 2] = (a or (b shl 4)).toByte()
+        for (ty in 0 until height step TILE_SIZE) {
+            for (tx in 0 until width step TILE_SIZE) {
+                for (py in 0 until TILE_SIZE) {
+                    for (px in 0 until TILE_SIZE step 2) {
+                        val a = quantized.indices[(ty + py) * width + tx + px]
+                        val b = quantized.indices[(ty + py) * width + tx + px + 1]
+                        tileBytes[tileIndex * 32 + py * 4 + px / 2] = (a or (b shl 4)).toByte()
+                    }
+                }
+                tileIndex++
             }
-            tileIndex++
         }
-        return GbaPaletteResult(colors, tileBytes, tileIndex, warnings)
+        return GbaPaletteResult(quantized.palette, tileBytes, tileCount, warnings, quantized.sourceColorCount)
     }
 
     fun toBgr555(color: Int): Int {
@@ -58,9 +62,10 @@ object AssetStudio {
     }
 
     fun paletteBytes(colors: List<Int>): ByteArray {
+        require(colors.size <= 16) { "Una paleta 4bpp no puede superar 16 entradas." }
         val out = ByteArray(colors.size * 2)
         colors.forEachIndexed { i, color ->
-            val value = color and 0xFFFF
+            val value = color and 0x7FFF
             out[i * 2] = value.toByte()
             out[i * 2 + 1] = (value ushr 8).toByte()
         }
