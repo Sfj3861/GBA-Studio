@@ -209,6 +209,7 @@ object GbaLinker {
             version = version,
             nintendoLogo = nintendoLogo
         ).toMutableList()
+        if (nintendoLogo != null) warnings += "El bloque de logo suministrado se copia sin verificarlo contra la referencia de BIOS."
         warnings += "Linker experimental: no parsea ELF ni implementa el ABI completo de relocaciones ARM."
         if (sections.any { it.region != GbaSection.Region.ROM }) {
             warnings += "Las secciones EWRAM/IWRAM se guardan como datos de carga en ROM; falta startup para copiarlas a RAM."
