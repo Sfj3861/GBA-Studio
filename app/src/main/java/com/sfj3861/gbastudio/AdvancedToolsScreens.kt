@@ -111,11 +111,27 @@ fun LinkerScreen() {
     var title by remember { mutableStateOf("MY GBA GAME") }
     var gameCode by remember { mutableStateOf("GBA0") }
     var maker by remember { mutableStateOf("00") }
+    var logo by remember { mutableStateOf<ByteArray?>(null) }
+    var logoName by remember { mutableStateOf("Sin bloque de logo (la BIOS puede rechazar la ROM)") }
     var output by remember { mutableStateOf<ByteArray?>(null) }
     var report by remember { mutableStateOf("") }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
             .onSuccess { input = it; fileName = uri.lastPathSegment ?: "binary.bin"; output = null }
+    }
+    val openLogo = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("No se pudo leer el bloque de logo.")
+        }.onSuccess { data ->
+            if (data.size == GbaRomHeader.LOGO_SIZE) {
+                logo = data
+                logoName = uri.lastPathSegment ?: "logo.bin"
+                output = null
+            } else {
+                logo = null
+                logoName = "Archivo inválido: se requieren exactamente 156 bytes"
+            }
+        }.onFailure { logo = null; logoName = "Error: ${it.message}" }
     }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null && output != null) runCatching {
@@ -124,15 +140,17 @@ fun LinkerScreen() {
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Linker / ROM image builder", style = MaterialTheme.typography.headlineMedium)
-        Text("Empaqueta un binario raw en una imagen GBA. El motor de enlace admite secciones, símbolos y algunas relocaciones, pero esta pantalla todavía ofrece el flujo simplificado de un único binario.")
+        Text("Empaqueta un binario raw, genera el salto de entrada ARM y construye los campos de cabecera GBA. El motor interno también admite símbolos y relocaciones, aunque esta pantalla ofrece el flujo simplificado de un único binario.")
         Button(onClick = { open.launch(arrayOf("*/*")) }) { Text("Seleccionar binario de código") }
         Text(fileName)
-        OutlinedTextField(value = title, onValueChange = { title = it.take(12) }, label = { Text("Título (máx. 12)") }, singleLine = true)
-        OutlinedTextField(value = gameCode, onValueChange = { gameCode = it.take(4).uppercase() }, label = { Text("Game Code (4)") }, singleLine = true)
-        OutlinedTextField(value = maker, onValueChange = { maker = it.take(2).uppercase() }, label = { Text("Maker Code (2)") }, singleLine = true)
+        OutlinedButton(onClick = { openLogo.launch(arrayOf("*/*")) }) { Text("Importar bloque de logo GBA (156 bytes, opcional)") }
+        Text(logoName, color = MaterialTheme.colorScheme.secondary)
+        OutlinedTextField(value = title, onValueChange = { title = it.take(12); output = null }, label = { Text("Título (máx. 12)") }, singleLine = true)
+        OutlinedTextField(value = gameCode, onValueChange = { gameCode = it.take(4).uppercase(); output = null }, label = { Text("Game Code (4)") }, singleLine = true)
+        OutlinedTextField(value = maker, onValueChange = { maker = it.take(2).uppercase(); output = null }, label = { Text("Maker Code (2)") }, singleLine = true)
         Button(enabled = input != null, onClick = {
             runCatching {
-                val result = GbaLinker.linkRawSections(listOf(GbaSection("code.bin", input!!)), title, gameCode, maker)
+                val result = GbaLinker.linkRawSections(listOf(GbaSection("code.bin", input!!)), title, gameCode, maker, nintendoLogo = logo)
                 output = result.image
                 report = "Imagen: ${result.image.size} bytes\n" + result.sections.joinToString("\n") { "${it.name}: 0x${it.address.toString(16).uppercase()} · ${it.size} bytes" } + "\n" + result.warnings.joinToString("\n")
             }.onFailure { report = "Error: ${it.message}" }
