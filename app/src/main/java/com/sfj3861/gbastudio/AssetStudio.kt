@@ -8,7 +8,9 @@ data class GbaPaletteResult(
     val tiles4bpp: ByteArray,
     val tileCount: Int,
     val warnings: List<String>,
-    val sourceColorCount: Int = (colors.size - 1).coerceAtLeast(0)
+    val sourceColorCount: Int = (colors.size - 1).coerceAtLeast(0),
+    val width: Int = 0,
+    val height: Int = 0
 )
 
 object AssetStudio {
@@ -51,7 +53,19 @@ object AssetStudio {
                 tileIndex++
             }
         }
-        return GbaPaletteResult(quantized.palette, tileBytes, tileCount, warnings, quantized.sourceColorCount)
+        return GbaPaletteResult(
+            quantized.palette, tileBytes, tileCount, warnings, quantized.sourceColorCount, width, height
+        )
+    }
+
+    fun renderPreview(result: GbaPaletteResult): Bitmap {
+        require(result.width > 0 && result.height > 0) { "No hay dimensiones de imagen para la vista previa." }
+        val pixels = GbaTileDecoder.decodeArgbPixels(
+            result.width, result.height, result.tiles4bpp, result.colors
+        )
+        return Bitmap.createBitmap(result.width, result.height, Bitmap.Config.ARGB_8888).apply {
+            setPixels(pixels, 0, result.width, 0, 0, result.width, result.height)
+        }
     }
 
     fun toBgr555(color: Int): Int {
