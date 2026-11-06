@@ -59,6 +59,13 @@ object ArmDisassembler {
             x and 0xF800 == 0x2800 -> "CMP" to "r${(x ushr 8) and 7}, #${x and 0xFF}"
             x and 0xF800 == 0x3000 -> "ADDS" to "r${(x ushr 8) and 7}, #${x and 0xFF}"
             x and 0xF800 == 0x3800 -> "SUBS" to "r${(x ushr 8) and 7}, #${x and 0xFF}"
+            x and 0xF800 == 0x1800 -> {
+                val immediate = x and 0x0400 != 0
+                val subtract = x and 0x0200 != 0
+                val operand = if (immediate) "#${(x ushr 6) and 7}" else "r${(x ushr 6) and 7}"
+                (if (subtract) "SUBS" else "ADDS") to
+                    "r${x and 7}, r${(x ushr 3) and 7}, $operand"
+            }
             top in 0..2 -> {
                 val names = listOf("LSL", "LSR", "ASR")
                 val rawAmount = (x ushr 6) and 31
