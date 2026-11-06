@@ -9,6 +9,9 @@ object GbaTileDecoder {
         require(width > 0 && height > 0 && width % 8 == 0 && height % 8 == 0) {
             "Las dimensiones deben ser múltiplos de 8."
         }
+        require(width.toLong() * height.toLong() <= 4L * 1024L * 1024L) {
+            "La vista previa supera el límite de 4 megapíxeles."
+        }
         require(paletteBgr555.isNotEmpty() && paletteBgr555.size <= 16) {
             "La paleta 4bpp debe contener entre 1 y 16 entradas."
         }
