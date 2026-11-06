@@ -126,6 +126,11 @@ class GbaEmulatorCore(
                 if (load) regs[register] = readMemory32(address and -4)
                 else writeMemory32(address and -4, regs[register])
             }
+            op and 0xF000 == 0xA000 -> {
+                val destination = (op ushr 8) and 7
+                val source = if (op and 0x0800 != 0) regs[13] else (pc + 4) and -4
+                regs[destination] = source + ((op and 0xFF) shl 2)
+            }
             op and 0xFF00 == 0xB000 -> {
                 val amount = (op and 0x7F) shl 2
                 regs[13] = if (op and 0x80 != 0) regs[13] - amount else regs[13] + amount
@@ -236,14 +241,16 @@ class GbaEmulatorCore(
         val operation = (op ushr 8) and 3
         val destination = (op and 7) or ((op ushr 4) and 8)
         val source = (op ushr 3) and 15
+        val sourceValue = if (source == 15) (pc + 4) and -4 else regs[source]
+        val destinationValue = if (destination == 15) (pc + 4) and -4 else regs[destination]
         when (operation) {
             0 -> {
-                val result = regs[destination] + regs[source]
+                val result = destinationValue + sourceValue
                 if (destination == 15) regs[15] = result and -2 else regs[destination] = result
             }
-            1 -> setSubFlags(regs[destination], regs[source], 0)
+            1 -> setSubFlags(destinationValue, sourceValue, 0)
             2 -> {
-                if (destination == 15) regs[15] = regs[source] and -2 else regs[destination] = regs[source]
+                if (destination == 15) regs[15] = sourceValue and -2 else regs[destination] = sourceValue
             }
             3 -> {
                 require(op and 0xFF87 == 0x4700) { "Codificación BX Thumb no válida." }
@@ -262,7 +269,7 @@ class GbaEmulatorCore(
         require(count > 0) { "PUSH requiere al menos un registro." }
         val oldSp = regs[13]
         val newSp = oldSp - count * 4
-        require(newSp and 3 == 0) { "SP no está alineado a 4 bytes." }
+        require((newSp and 3) == 0) { "SP no está alineado a 4 bytes." }
         var address = newSp
         registers.forEach { register ->
             writeMemory32(address, regs[register])
@@ -278,7 +285,7 @@ class GbaEmulatorCore(
         val count = registers.size + if (includePc) 1 else 0
         require(count > 0) { "POP requiere al menos un registro." }
         var address = regs[13]
-        require(address and 3 == 0) { "SP no está alineado a 4 bytes." }
+        require((address and 3) == 0) { "SP no está alineado a 4 bytes." }
         registers.forEach { register ->
             regs[register] = readMemory32(address)
             address += 4
@@ -299,7 +306,7 @@ class GbaEmulatorCore(
         val registers = (0..7).filter { op and (1 shl it) != 0 }
         require(registers.isNotEmpty()) { "LDMIA/STMIA requiere al menos un registro." }
         val base = regs[baseRegister]
-        require(base and 3 == 0) { "La dirección base de LDMIA/STMIA debe estar alineada." }
+        require((base and 3) == 0) { "La dirección base de LDMIA/STMIA debe estar alineada." }
         var address = base
         registers.forEach { register ->
             if (load) regs[register] = readMemory32(address)
