@@ -197,11 +197,8 @@ class ProjectRepository(context: Context) {
     }
 
     private fun readIndex(): List<JSONObject> = try {
-        if (!index.exists()) emptyList()
-        else {
-            val array = JSONArray(atomicIndex.openRead().bufferedReader(Charsets.UTF_8).use { it.readText() })
-            (0 until array.length()).map { array.getJSONObject(it) }
-        }
+        val array = JSONArray(atomicIndex.openRead().bufferedReader(Charsets.UTF_8).use { it.readText() })
+        (0 until array.length()).map { array.getJSONObject(it) }
     } catch (_: Exception) { emptyList() }
 
     private fun writeIndex(projects: List<GbaProject>) {
