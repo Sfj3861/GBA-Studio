@@ -1,0 +1,49 @@
+package com.sfj3861.gbastudio
+
+import java.io.ByteArrayInputStream
+import java.util.zip.ZipInputStream
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class GbaAssetBundleExporterTest {
+    @Test fun writesAllMatchingAssetFilesAndManifest() {
+        val assets = GbaPaletteResult(
+            colors = listOf(0, 0x001F, 0x03E0),
+            tiles4bpp = ByteArray(64) { if (it < 32) 0x11 else 0x22 },
+            tileCount = 2,
+            warnings = emptyList(),
+            width = 16,
+            height = 8
+        )
+        val map = GbaTileMapBuilder.build(assets)
+        val zipBytes = GbaAssetBundleExporter.createZip(assets, map)
+        val files = linkedMapOf<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                files[entry.name] = zip.readBytes()
+                zip.closeEntry()
+            }
+        }
+
+        assertEquals(
+            setOf("tiles.4bpp", "palette.pal", "background.map", "asset.h", "asset.json", "README.txt"),
+            files.keys
+        )
+        assertArrayEquals(map.uniqueTiles4bpp, files["tiles.4bpp"])
+        assertArrayEquals(AssetStudio.paletteBytes(assets.colors), files["palette.pal"])
+        assertArrayEquals(map.bytes, files["background.map"])
+        assertTrue(String(files.getValue("asset.json")).contains("\"screenSizeCode\": 0"))
+        assertTrue(String(files.getValue("asset.json")).contains("\"uniqueTileCount\": 2"))
+        assertTrue(String(files.getValue("asset.h")).contains("#define GBA_BG_SIZE_CODE 0"))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsMapWithInconsistentTileBytes() {
+        val assets = GbaPaletteResult(listOf(0, 1), ByteArray(32), 1, emptyList(), width = 8, height = 8)
+        val map = GbaTileMapBuilder.build(assets).copy(uniqueTiles4bpp = ByteArray(31))
+        GbaAssetBundleExporter.createZip(assets, map)
+    }
+}
