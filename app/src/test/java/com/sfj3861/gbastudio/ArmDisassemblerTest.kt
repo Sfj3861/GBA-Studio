@@ -10,6 +10,22 @@ class ArmDisassemblerTest {
         assertEquals("MOVS", decoded.mnemonic)
         assertEquals("r0, #7", decoded.operands)
     
+
+    @Test fun decodesThumbBxAndKeepsReservedVariantAsData() {
+        assertEquals("BX", ArmDisassembler.decodeThumb(0x4700, 0x08000000).mnemonic)
+        assertEquals(".hword", ArmDisassembler.decodeThumb(0x4780, 0x08000000).mnemonic)
+    }
+
+    @Test fun preservesTrailingBytesInBothInstructionModes() {
+        val thumb = ArmDisassembler.decode(byteArrayOf(0x34), 0x08000000, thumb = true)
+        val arm = ArmDisassembler.decode(byteArrayOf(0x34, 0x12), 0x08000000, thumb = false)
+        assertEquals(1, thumb.size)
+        assertEquals(1, thumb.single().width)
+        assertEquals(".byte", thumb.single().mnemonic)
+        assertEquals(2, arm.size)
+        assertTrue(arm.all { it.width == 1 && it.mnemonic == ".byte" })
+    }
+
     @Test fun alignsThumbPcRelativeLiteralAddress() {
         val decoded = ArmDisassembler.decodeThumb(0x4800, 0x08000002)
         assertEquals("LDR", decoded.mnemonic)
