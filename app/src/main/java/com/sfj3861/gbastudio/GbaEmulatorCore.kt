@@ -21,6 +21,7 @@ class GbaEmulatorCore(rom: ByteArray) {
     private var thumb = false
     private var steps = 0L
     private var halted = false
+    private val romSize = rom.size
     private var message = "CPU preparado"
 
     init {
@@ -36,7 +37,7 @@ class GbaEmulatorCore(rom: ByteArray) {
         if (halted) return snapshot()
         val pc = regs[15]
         val offset = pc - 0x08000000
-        if (offset < 0 || offset + if (thumb) 1 else 3 >= memory.size) {
+        if (offset < 0 || offset + (if (thumb) 1 else 3) >= romSize) {
             halted = true
             message = "PC fuera del área ROM de prueba"
             return snapshot()
