@@ -34,7 +34,7 @@ object CppDiagnostics {
                 cleaned = cleaned.removeRange(start, end + 2)
             }
             cleaned = cleaned.substringBefore("//")
-            val code = cleaned.replace(Regex("\"([^\\\\"]|\\\\.)*\"|'([^'\\\\]|\\\\.)*'"), " ")
+            val code = cleaned.replace(Regex("""\"([^\"\\]|\\.)*\"|'([^'\\]|\\.)*'"""), " ")
             braces += code.count { it == '{' } - code.count { it == '}' }
             parens += code.count { it == '(' } - code.count { it == ')' }
             if (braces < 0) {
