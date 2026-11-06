@@ -41,7 +41,9 @@
 - [x] Raster image import
 - [x] 8x8 4bpp tile conversion
 - [x] BGR555 palette export
-- [ ] Tilemap editor and preview
+- [x] Tile deduplication and hardware-ordered screenblock tilemap generation
+- [x] Reconstructed tilemap preview and ZIP bundle export with generated C arrays/header
+- [ ] Interactive tilemap editor (generation, screenblock preview and export are implemented)
 - [ ] Sprite/OAM editor and animation timeline
 - [ ] Audio conversion pipeline
 - [x] Basic deterministic 15-color palette reduction for 4bpp assets (source images capped at 4 megapixels)
@@ -49,7 +51,7 @@
 - [ ] Source project compatibility report and porting helpers
 
 ## Milestone 5 — Emulation and debugging
-- [x] Experimental ARM/Thumb arithmetic/branch stepper with condition flags, BX state switching, MUL/MLA and selected load/store instructions
+- [x] Experimental ARM/Thumb stepper with condition flags, BX state switching, MUL/MLA, selected loads/stores, stack operations and multiple-register transfer
 - [x] Initial ROM/EWRAM/IWRAM data bus for the supported instruction subset
 - [ ] Full ARM7TDMI execution and complete GBA memory bus (current ROM/EWRAM/IWRAM implementation is partial)
 - [ ] GBA PPU/video rendering
