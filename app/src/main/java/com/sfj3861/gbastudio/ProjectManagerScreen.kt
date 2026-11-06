@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -248,6 +249,8 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
                             onValueChange = { draft = it; dirty = true; saveState = "Cambios pendientes" },
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                            visualTransformation = if (selectedFile?.substringAfterLast('.', "").lowercase() in setOf("c", "h", "cpp", "hpp"))
+                                CCodeVisualTransformation else VisualTransformation.None,
                             label = { Text("Código / contenido") },
                             placeholder = { Text("Escribe aquí…") }
                         )
