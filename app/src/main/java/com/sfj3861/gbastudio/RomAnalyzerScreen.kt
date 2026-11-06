@@ -164,10 +164,26 @@ fun RomAnalyzerScreen() {
                     HeaderValue("Versión", data.softwareVersion.toString())
                     HeaderValue("Checksum almacenado", "0x%02X".format(data.storedChecksum))
                     HeaderValue("Checksum calculado", "0x%02X".format(data.expectedChecksum))
+                    HeaderValue("Byte fijo 0xB2", "0x%02X".format(data.fixedValue))
+                    HeaderValue("Bloque de logo", if (data.hasLogoData) "Datos presentes (sin validar)" else "Sin datos")
+                    HeaderValue("Instrucción de entrada", "0x%08X".format(data.entryPointInstruction))
+                    HeaderValue("Destino del salto", data.entryPointAddress?.let { "0x%08X".format(it) } ?: "No detectado")
                     Text(
                         if (data.checksumValid) "Checksum de cabecera correcto" else "El checksum de cabecera no coincide",
                         color = if (data.checksumValid) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        if (data.fixedValueValid) "Byte fijo de cabecera correcto" else "Byte fijo incorrecto: se esperaba 0x96",
+                        color = if (data.fixedValueValid) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        if (data.hasEntryBranch) "Se ha reconocido la instrucción de salto de entrada" else "No se ha reconocido un salto ARM de entrada estándar",
+                        color = if (data.hasEntryBranch) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        if (data.hasLogoData) "Hay datos en el bloque del logo; no se ha validado contra el logo BIOS" else "El bloque del logo está vacío",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
