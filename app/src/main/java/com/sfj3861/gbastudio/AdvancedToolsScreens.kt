@@ -157,7 +157,8 @@ fun LinkerScreen() {
             runCatching {
                 val result = GbaLinker.linkRawSections(listOf(GbaSection("code.bin", input!!)), title, gameCode, maker, nintendoLogo = logo)
                 output = result.image
-                val entry = (result.image[0].toLong() and 255) or ((result.image[1].toLong() and 255) shl 8) or ((result.image[2].toLong() and 255) shl 16) or ((result.image[3].toLong() and 255) shl 24)\n                report = "Imagen: ${result.image.size} bytes\nPunto de entrada: 0x%08X".format(0x08000008L + ((entry and 0x00FFFFFFL) shl 2)) + "\nChecksum de cabecera: ${if (GbaRomHeader.hasValidComplement(result.image)) "correcto" else "incorrecto"}\n" + result.sections.joinToString("\n") { "${it.name}: 0x${it.address.toString(16).uppercase()} · ${it.size} bytes · archivo +0x${it.fileOffset.toString(16).uppercase()}" } + "\n" + result.warnings.joinToString("\n")
+                val entry = (result.image[0].toLong() and 255) or ((result.image[1].toLong() and 255) shl 8) or ((result.image[2].toLong() and 255) shl 16) or ((result.image[3].toLong() and 255) shl 24)
+                report = "Imagen: ${result.image.size} bytes\nPunto de entrada: 0x%08X".format(0x08000008L + ((entry and 0x00FFFFFFL) shl 2)) + "\nChecksum de cabecera: ${if (GbaRomHeader.hasValidComplement(result.image)) "correcto" else "incorrecto"}\n" + result.sections.joinToString("\n") { "${it.name}: 0x${it.address.toString(16).uppercase()} · ${it.size} bytes · archivo +0x${it.fileOffset.toString(16).uppercase()}" } + "\n" + result.warnings.joinToString("\n")
             }.onFailure { report = "Error: ${it.message}" }
         }) { Text("Construir imagen ROM") }
         if (output != null) OutlinedButton(onClick = { save.launch("game-experimental.gba") }) { Text("Exportar .gba experimental") }
@@ -231,6 +232,7 @@ fun EmulatorScreen() {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text("PC: 0x%08X".format(state.pc), fontFamily = FontFamily.Monospace)
                     Text("Modo: ${if (state.thumb) "Thumb" else "ARM"} · Pasos: ${state.steps}")
+                    Text("CPSR: 0x%08X".format(state.cpsr), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     Text("CPSR: 0x%08X".format(state.cpsr), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
                     Text("Estado: ${if (state.halted) "Detenido" else "Activo"}")
                     state.registers.forEachIndexed { index, value ->
