@@ -40,7 +40,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun ProjectManagerScreen(repository: ProjectRepository) {
+fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "Mis proyectos") {
     var projects by remember { mutableStateOf(emptyList<GbaProject>()) }
     var activeProject by remember { mutableStateOf<GbaProject?>(null) }
     var selectedFile by remember { mutableStateOf<String?>(null) }
@@ -116,7 +116,7 @@ fun ProjectManagerScreen(repository: ProjectRepository) {
         if (activeProject == null) {
             Row(Modifier.fillMaxWidth()) {
                 Column(Modifier.weight(1f)) {
-                    Text("Mis proyectos", style = MaterialTheme.typography.headlineMedium)
+                    Text(screenTitle, style = MaterialTheme.typography.headlineMedium)
                     Text("Proyectos guardados localmente en este dispositivo.")
                 }
                 Button(onClick = { showCreate = true }) { Text("Nuevo proyecto") }
