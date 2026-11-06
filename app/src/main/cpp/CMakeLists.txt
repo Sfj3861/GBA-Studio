@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(gbastudio_native LANGUAGES CXX)
+add_library(gbastudio_native SHARED native-lib.cpp)
+find_library(log-lib log)
+target_compile_features(gbastudio_native PRIVATE cxx_std_20)
+target_compile_options(gbastudio_native PRIVATE -Wall -Wextra -Wpedantic)
+target_link_libraries(gbastudio_native PRIVATE ${log-lib})
