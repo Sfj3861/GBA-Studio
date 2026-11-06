@@ -18,7 +18,8 @@ data class EmulatorSnapshot(
 class GbaEmulatorCore(
     rom: ByteArray,
     startInThumb: Boolean = false,
-    entryOffset: Int = 0
+    entryOffset: Int = 0,
+    initialRegisters: IntArray? = null
 ) {
     private val memory = ByteArray(0x02000000)
     private val regs = IntArray(16)
@@ -37,7 +38,10 @@ class GbaEmulatorCore(
             "El punto de entrada no está alineado para el modo seleccionado."
         }
         rom.copyInto(memory, 0, 0, rom.size)
+        require(initialRegisters == null || initialRegisters.size == 16) { "El estado inicial debe contener exactamente 16 registros." }
+        initialRegisters?.copyInto(regs)
         regs[15] = ROM_BASE + entryOffset
+        setFlag(T_FLAG, startInThumb)
     }
 
     fun snapshot() = EmulatorSnapshot(regs[15], regs.copyOf(), thumb, steps, halted, message, cpsr)
@@ -108,7 +112,8 @@ class GbaEmulatorCore(
             op and 0xFF00 == 0x4700 -> {
                 val target = regs[(op ushr 3) and 15]
                 thumb = target and 1 != 0
-                regs[15] = target and if (thumb) -2 else -4
+                setFlag(T_FLAG, thumb)
+                regs[15] = target and (if (thumb) -2 else -4)
             }
             op == 0x46C0 -> Unit
             else -> throw IllegalArgumentException("Thumb opcode no implementado: %04X".format(op and 0xFFFF))
@@ -124,6 +129,12 @@ class GbaEmulatorCore(
         }
 
         when {
+            op and 0x0FFFFFF0 == 0x012FFF10 -> {
+                val target = regs[op and 15]
+                thumb = target and 1 != 0
+                setFlag(T_FLAG, thumb)
+                regs[15] = target and (if (thumb) -2 else -4)
+            }
             op and 0x0E000000 == 0x0A000000 -> {
                 val displacement = signExtend((op and 0xFFFFFF) shl 2, 26)
                 if (op and (1 shl 24) != 0) regs[14] = pc + 4
@@ -341,5 +352,6 @@ class GbaEmulatorCore(
         const val Z_FLAG = 1 shl 30
         const val C_FLAG = 1 shl 29
         const val V_FLAG = 1 shl 28
+        const val T_FLAG = 1 shl 5
     }
 }
