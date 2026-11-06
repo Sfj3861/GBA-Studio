@@ -60,20 +60,6 @@ fun DisassemblerScreen() {
             }.onFailure { bytes = null; label = "Error al importar: ${it.message}"; rows = emptyList() }
         }
     }
-    val saveMapTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && mapTiles != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri)
-                ?: error("No se pudo abrir el destino de tiles deduplicados.")
-            stream.use { it.write(mapTiles!!) }
-        }.onFailure { summary = "Error al exportar tiles deduplicados: ${it.message}" }
-    }
-    val saveTilemap = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && tilemap != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri)
-                ?: error("No se pudo abrir el destino del tilemap.")
-            stream.use { it.write(tilemap!!) }
-        }.onFailure { summary = "Error al exportar tilemap: ${it.message}" }
-    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Desensamblador ARM / Thumb", style = MaterialTheme.typography.headlineMedium)
         Text("Inspecciona instrucciones de una ROM GBA. El decodificador cubre un subconjunto de ARM7TDMI; las instrucciones desconocidas se muestran como datos.")
@@ -283,6 +269,20 @@ fun AssetStudioScreen() {
             val stream = context.contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino de la paleta.")
             stream.use { it.write(palette!!) }
         }.onFailure { summary = "Error al exportar paleta: ${it.message}" }
+    }
+    val saveMapTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null && mapTiles != null) runCatching {
+            val stream = context.contentResolver.openOutputStream(uri)
+                ?: error("No se pudo abrir el destino de tiles deduplicados.")
+            stream.use { it.write(mapTiles!!) }
+        }.onFailure { summary = "Error al exportar tiles deduplicados: ${it.message}" }
+    }
+    val saveTilemap = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        if (uri != null && tilemap != null) runCatching {
+            val stream = context.contentResolver.openOutputStream(uri)
+                ?: error("No se pudo abrir el destino del tilemap.")
+            stream.use { it.write(tilemap!!) }
+        }.onFailure { summary = "Error al exportar tilemap: ${it.message}" }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Asset Studio", style = MaterialTheme.typography.headlineMedium)
