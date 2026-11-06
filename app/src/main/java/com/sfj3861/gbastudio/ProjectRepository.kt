@@ -100,7 +100,7 @@ class ProjectRepository(context: Context) {
                     entries++
                     require(entries <= 2000) { "El archivo contiene demasiados elementos." }
                     val name = entry.name
-                    require(name.isNotBlank() && !name.startsWith("/") && !name.contains("\\\\") &&
+                    require(name.isNotBlank() && !name.startsWith("/") && !name.contains("\\") &&
                         !name.split("/").contains("..")) { "El archivo ZIP contiene una ruta no válida." }
                     val target = File(dir, name).canonicalFile
                     require(target.path.startsWith(dir.canonicalPath + File.separator)) {
