@@ -75,6 +75,9 @@ class GbaEmulatorCore(
     private fun executeThumb(op: Int, pc: Int) {
         regs[15] = pc + 2
         when {
+            op and 0xE000 == 0x0000 && op and 0x1800 != 0x1800 ->
+                executeThumbImmediateShift(op)
+            op and 0xF800 == 0x1800 -> executeThumbAddSubtract(op)
             op and 0xF800 == 0x2000 -> {
                 val result = op and 0xFF
                 regs[(op ushr 8) and 7] = result
@@ -82,8 +85,7 @@ class GbaEmulatorCore(
             }
             op and 0xF800 == 0x2800 -> {
                 val lhs = regs[(op ushr 8) and 7]
-                val rhs = op and 0xFF
-                setSubFlags(lhs, rhs, 0)
+                setSubFlags(lhs, op and 0xFF, 0)
             }
             op and 0xF800 == 0x3000 -> {
                 val register = (op ushr 8) and 7
@@ -101,6 +103,8 @@ class GbaEmulatorCore(
                 regs[register] = result
                 setSubFlags(lhs, rhs, 0, result)
             }
+            op and 0xFC00 == 0x4000 -> executeThumbAlu(op)
+            op and 0xFC00 == 0x4400 -> executeThumbHighRegister(op, pc)
             op and 0xF800 == 0x4800 -> {
                 val destination = (op ushr 8) and 7
                 val address = ((pc + 4) and -4) + ((op and 0xFF) shl 2)
@@ -122,6 +126,15 @@ class GbaEmulatorCore(
                 if (load) regs[register] = readMemory32(address and -4)
                 else writeMemory32(address and -4, regs[register])
             }
+            op and 0xFF00 == 0xB000 -> {
+                val amount = (op and 0x7F) shl 2
+                regs[13] = if (op and 0x80 != 0) regs[13] - amount else regs[13] + amount
+            }
+            op and 0xFE00 == 0xB400 -> executeThumbPush(op)
+            op and 0xFE00 == 0xBC00 -> executeThumbPop(op)
+            op and 0xF000 == 0xC000 -> executeThumbMultipleTransfer(op)
+            op and 0xFF00 == 0xDF00 ->
+                throw IllegalArgumentException("SWI requiere BIOS; la emulación BIOS no está implementada.")
             op and 0xF000 == 0xD000 && ((op ushr 8) and 15) < 14 -> {
                 val condition = (op ushr 8) and 15
                 if (conditionPassed(condition)) {
@@ -133,15 +146,167 @@ class GbaEmulatorCore(
                 val displacement = signExtend((op and 0x7FF) shl 1, 12)
                 regs[15] = pc + 4 + displacement
             }
-            op and 0xFF87 == 0x4700 -> {
-                val target = regs[(op ushr 3) and 15]
+            op and 0xF800 == 0xF000 -> {
+                val highOffset = signExtend((op and 0x7FF) shl 12, 23)
+                regs[14] = pc + 4 + highOffset
+            }
+            op and 0xF800 == 0xF800 -> {
+                val target = regs[14] + ((op and 0x7FF) shl 1)
+                regs[14] = (pc + 2) or 1
+                regs[15] = target and -2
+            }
+            op == 0x46C0 -> Unit // MOV r8, r8 (NOP)
+            else -> throw IllegalArgumentException("Thumb opcode no implementado: %04X".format(op and 0xFFFF))
+        }
+    }
+
+    private fun executeThumbImmediateShift(op: Int) {
+        val type = (op ushr 11) and 3
+        val rawAmount = (op ushr 6) and 31
+        val amount = if (type != 0 && rawAmount == 0) 32 else rawAmount
+        val source = regs[(op ushr 3) and 7]
+        val destination = op and 7
+        val shifted = shift(source, type, amount, byRegister = false)
+        regs[destination] = shifted.value
+        setNz(shifted.value)
+        if (shifted.carry != null) setFlag(C_FLAG, shifted.carry)
+    }
+
+    private fun executeThumbAddSubtract(op: Int) {
+        val immediate = op and 0x0400 != 0
+        val subtract = op and 0x0200 != 0
+        val operand = if (immediate) (op ushr 6) and 7 else regs[(op ushr 6) and 7]
+        val source = regs[(op ushr 3) and 7]
+        val destination = op and 7
+        if (subtract) {
+            val result = source - operand
+            regs[destination] = result
+            setSubFlags(source, operand, 0, result)
+        } else {
+            val result = source + operand
+            regs[destination] = result
+            setAddFlags(source, operand, 0, result)
+        }
+    }
+
+    private fun executeThumbAlu(op: Int) {
+        val operation = (op ushr 6) and 15
+        val destination = op and 7
+        val source = (op ushr 3) and 7
+        val lhs = regs[destination]
+        val rhs = regs[source]
+        val carryIn = if (flag(C_FLAG)) 1 else 0
+        when (operation) {
+            0 -> { val result = lhs and rhs; regs[destination] = result; setNz(result) }
+            1 -> { val result = lhs xor rhs; regs[destination] = result; setNz(result) }
+            2, 3, 4, 7 -> {
+                val type = when (operation) { 2 -> 0; 3 -> 1; 4 -> 2; else -> 3 }
+                val shifted = shift(lhs, type, rhs and 0xFF, byRegister = true)
+                regs[destination] = shifted.value
+                setNz(shifted.value)
+                if (shifted.carry != null) setFlag(C_FLAG, shifted.carry)
+            }
+            5 -> {
+                val result = lhs + rhs + carryIn
+                regs[destination] = result
+                setAddFlags(lhs, rhs, carryIn, result)
+            }
+            6 -> {
+                val borrow = 1 - carryIn
+                val result = lhs - rhs - borrow
+                regs[destination] = result
+                setSubFlags(lhs, rhs, borrow, result)
+            }
+            8 -> setNz(lhs and rhs) // TST does not store its result.
+            9 -> {
+                val result = 0 - rhs
+                regs[destination] = result
+                setSubFlags(0, rhs, 0, result)
+            }
+            10 -> setSubFlags(lhs, rhs, 0) // CMP
+            11 -> setAddFlags(lhs, rhs, 0, lhs + rhs) // CMN
+            12 -> { val result = lhs or rhs; regs[destination] = result; setNz(result) }
+            13 -> { val result = lhs * rhs; regs[destination] = result; setNz(result) }
+            14 -> { val result = lhs and rhs.inv(); regs[destination] = result; setNz(result) }
+            15 -> { val result = rhs.inv(); regs[destination] = result; setNz(result) }
+        }
+    }
+
+    private fun executeThumbHighRegister(op: Int, pc: Int) {
+        val operation = (op ushr 8) and 3
+        val destination = (op and 7) or ((op ushr 4) and 8)
+        val source = (op ushr 3) and 15
+        when (operation) {
+            0 -> {
+                val result = regs[destination] + regs[source]
+                if (destination == 15) regs[15] = result and -2 else regs[destination] = result
+            }
+            1 -> setSubFlags(regs[destination], regs[source], 0)
+            2 -> {
+                if (destination == 15) regs[15] = regs[source] and -2 else regs[destination] = regs[source]
+            }
+            3 -> {
+                require(op and 0xFF87 == 0x4700) { "Codificación BX Thumb no válida." }
+                val target = regs[source]
                 thumb = target and 1 != 0
                 setFlag(T_FLAG, thumb)
                 regs[15] = target and (if (thumb) -2 else -4)
             }
-            op == 0x46C0 -> Unit
-            else -> throw IllegalArgumentException("Thumb opcode no implementado: %04X".format(op and 0xFFFF))
         }
+    }
+
+    private fun executeThumbPush(op: Int) {
+        val registers = (0..7).filter { op and (1 shl it) != 0 }
+        val includeLr = op and 0x100 != 0
+        val count = registers.size + if (includeLr) 1 else 0
+        require(count > 0) { "PUSH requiere al menos un registro." }
+        val oldSp = regs[13]
+        val newSp = oldSp - count * 4
+        require(newSp and 3 == 0) { "SP no está alineado a 4 bytes." }
+        var address = newSp
+        registers.forEach { register ->
+            writeMemory32(address, regs[register])
+            address += 4
+        }
+        if (includeLr) writeMemory32(address, regs[14])
+        regs[13] = newSp
+    }
+
+    private fun executeThumbPop(op: Int) {
+        val registers = (0..7).filter { op and (1 shl it) != 0 }
+        val includePc = op and 0x100 != 0
+        val count = registers.size + if (includePc) 1 else 0
+        require(count > 0) { "POP requiere al menos un registro." }
+        var address = regs[13]
+        require(address and 3 == 0) { "SP no está alineado a 4 bytes." }
+        registers.forEach { register ->
+            regs[register] = readMemory32(address)
+            address += 4
+        }
+        if (includePc) {
+            val target = readMemory32(address)
+            address += 4
+            regs[15] = target and -2
+            thumb = true
+            setFlag(T_FLAG, true)
+        }
+        regs[13] = address
+    }
+
+    private fun executeThumbMultipleTransfer(op: Int) {
+        val load = op and 0x0800 != 0
+        val baseRegister = (op ushr 8) and 7
+        val registers = (0..7).filter { op and (1 shl it) != 0 }
+        require(registers.isNotEmpty()) { "LDMIA/STMIA requiere al menos un registro." }
+        val base = regs[baseRegister]
+        require(base and 3 == 0) { "La dirección base de LDMIA/STMIA debe estar alineada." }
+        var address = base
+        registers.forEach { register ->
+            if (load) regs[register] = readMemory32(address)
+            else writeMemory32(address, regs[register])
+            address += 4
+        }
+        if (!load || baseRegister !in registers) regs[baseRegister] = address
     }
 
     private fun executeArm(op: Int, pc: Int) {
