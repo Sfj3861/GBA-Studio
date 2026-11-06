@@ -23,17 +23,20 @@ object AssetStudio {
         val indices = IntArray(width * height)
         for (y in 0 until height) for (x in 0 until width) {
             val argb = bitmap.getPixel(x, y)
-            val color = if (Color.alpha(argb) < 128) 0 else {
+            val color = if (Color.alpha(argb) < 128) -1 else {
                 val r = (Color.red(argb) shr 3) and 31
                 val g = (Color.green(argb) shr 3) and 31
                 val b = (Color.blue(argb) shr 3) and 31
                 r or (g shl 5) or (b shl 10)
             }
-            if (color != 0 && !palette.containsKey(color)) palette[color] = palette.size
-            indices[y * width + x] = if (color == 0) 0 else palette.getValue(color)
+            if (color >= 0) {
+                val key = if (color == 0) 0x10000 else color
+                if (!palette.containsKey(key)) palette[key] = palette.size
+                indices[y * width + x] = palette.getValue(key)
+            } else indices[y * width + x] = 0
         }
         if (palette.size > 16) warnings += "La imagen supera los 15 colores visibles disponibles cuando se reserva el índice 0 para transparencia; los colores posteriores se aproximan."
-        val colors = palette.keys.take(16).toList()
+        val colors = palette.keys.take(16).map { if (it == 0x10000) 0 else it }
         val tileBytes = ByteArray((width / 8) * (height / 8) * 32)
         var tileIndex = 0
         for (ty in 0 until height step 8) for (tx in 0 until width step 8) {
