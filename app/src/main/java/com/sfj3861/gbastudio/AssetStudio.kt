@@ -27,7 +27,7 @@ object AssetStudio {
         val width = bitmap.width / TILE_SIZE * TILE_SIZE
         val height = bitmap.height / TILE_SIZE * TILE_SIZE
         require(width > 0 && height > 0) { "La imagen debe medir al menos 8×8 píxeles." }
-        require(width.toLong() * height <= MAX_PIXELS) { "La imagen recortada supera el límite de 16 megapíxeles." }
+        require(width.toLong() * height <= MAX_PIXELS) { "La imagen recortada supera el límite de 4 megapíxeles." }
 
         val argb = IntArray(width * height)
         bitmap.getPixels(argb, 0, width, 0, 0, width, height)
