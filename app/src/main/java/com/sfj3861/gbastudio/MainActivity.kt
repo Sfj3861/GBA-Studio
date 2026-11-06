@@ -170,7 +170,7 @@ private fun AppHeader() {
 private fun DestinationContent(destination: Destination, navigate: (Destination) -> Unit) {
     when (destination) {
         Destination.HOME -> HomeScreen(navigate)
-        Destination.PROJECTS -> ProjectManagerScreen(ProjectRepository(LocalContext.current)) { /* project editor is next */ }
+        Destination.PROJECTS -> ProjectManagerScreen(ProjectRepository(LocalContext.current))
         Destination.TUTORIALS -> TutorialScreen()
         Destination.AI -> AiScreen()
         Destination.ROM -> RomAnalyzerScreen()
