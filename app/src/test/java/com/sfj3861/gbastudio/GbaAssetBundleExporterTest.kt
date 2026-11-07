@@ -44,7 +44,7 @@ class GbaAssetBundleExporterTest {
         assertTrue(String(files.getValue("README.txt")).contains("palette bank 3"))
         val cSource = String(files.getValue("asset.c"))
         assertTrue(cSource.contains("#include \"asset.h\""))
-        assertTrue(cSource.contains("const uint8_t gba_asset_tiles[32]"))
+        assertTrue(cSource.contains("const uint8_t gba_asset_tiles[64]"))
         assertTrue(cSource.contains("const uint16_t gba_asset_palette[3]"))
         assertTrue(cSource.contains("const uint16_t gba_asset_map[1024]"))
     }
