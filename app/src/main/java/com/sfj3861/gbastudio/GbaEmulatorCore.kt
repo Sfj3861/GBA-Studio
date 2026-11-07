@@ -253,7 +253,7 @@ class GbaEmulatorCore(
                 if (destination == 15) regs[15] = sourceValue and -2 else regs[destination] = sourceValue
             }
             3 -> {
-                require(op and 0xFF87 == 0x4700) { "Codificación BX Thumb no válida." }
+                require(op and 0xFF87 == 0x4700) { "Thumb opcode BX no válido." }
                 val target = regs[source]
                 thumb = target and 1 != 0
                 setFlag(T_FLAG, thumb)
