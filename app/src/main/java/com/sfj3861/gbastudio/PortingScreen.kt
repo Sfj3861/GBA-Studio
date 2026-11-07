@@ -18,7 +18,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun PortingScreen(){
-    val repository= remember{ProjectRepository(LocalContext.current)}
+    val context=LocalContext.current
+    val repository= remember(context){ProjectRepository(context)}
     var projects by remember{mutableStateOf(repository.list())}
     var selectedId by remember{mutableStateOf(projects.firstOrNull()?.id)}
     var report by remember{mutableStateOf<PortingReport?>(null)}
