@@ -167,6 +167,7 @@ object ArmDisassembler {
                 (if (op and (1 shl 24) != 0) "BL$suffix" else "B$suffix") to "0x%08X".format(pc + disp)
             }
             op and 0x0C000000 == 0x04000000 -> decodeArmTransfer(op, suffix)
+            op and 0x0E000000 == 0x08000000 -> decodeArmBlockTransfer(op, suffix)
             op and 0x0FC000F0 == 0x00000090 -> decodeArmMultiply(op, suffix)
             op and 0x0E000090 == 0x00000090 -> ".word" to "0x%08X".format(op)
             op and 0x0FBF0FFF == 0x010F0000 ||
@@ -193,6 +194,34 @@ object ArmDisassembler {
             else -> ".word" to "0x%08X".format(op)
         }
         return DisassembledInstruction(address, op, 4, decoded.first, decoded.second)
+    }
+
+    private fun decodeArmBlockTransfer(op: Int, suffix: String): Pair<String, String> {
+        val preIndexed = op and (1 shl 24) != 0
+        val addOffset = op and (1 shl 23) != 0
+        val userBank = op and (1 shl 22) != 0
+        val writeBack = op and (1 shl 21) != 0
+        val load = op and (1 shl 20) != 0
+        val base = (op ushr 16) and 15
+        val registers = (0..15).filter { op and (1 shl it) != 0 }
+            .joinToString(", ") { registerName(it) }
+        val mode = when {
+            addOffset && !preIndexed -> "IA"
+            addOffset && preIndexed -> "IB"
+            !addOffset && !preIndexed -> "DA"
+            else -> "DB"
+        }
+        val mnemonic = (if (load) "LDM" else "STM") + mode + suffix
+        val operands = "r$base" + (if (writeBack) "!" else "") +
+            ", {$registers}" + (if (userBank) "^" else "")
+        return mnemonic to operands
+    }
+
+    private fun registerName(register: Int): String = when (register) {
+        13 -> "SP"
+        14 -> "LR"
+        15 -> "PC"
+        else -> "r$register"
     }
 
     private fun decodeArmMultiply(op: Int, suffix: String): Pair<String, String> {
