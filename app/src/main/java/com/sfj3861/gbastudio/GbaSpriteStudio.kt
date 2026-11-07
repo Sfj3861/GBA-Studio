@@ -11,7 +11,7 @@ object GbaSpriteStudio {
     private val legalSizes=setOf(8 to 8,16 to 16,32 to 32,64 to 64,16 to 8,32 to 8,32 to 16,64 to 32,8 to 16,8 to 32,16 to 32,32 to 64)
 
     fun build(bitmap:Bitmap,frameWidth:Int,frameHeight:Int,durationMs:Int=100,x:Int=0,y:Int=0,priority:Int=0,paletteBank:Int=0):GbaSpriteSheetResult {
-        require(frameWidth to frameHeight in legalSizes) { "Tamaño OBJ no válido. Usa dimensiones GBA admitidas." }
+        require((frameWidth to frameHeight) in legalSizes) { "Tamaño OBJ no válido. Usa dimensiones GBA admitidas." }
         require(bitmap.width%frameWidth==0 && bitmap.height%frameHeight==0) { "El spritesheet debe dividirse exactamente en celdas." }
         require(durationMs in 1..60_000) { "Duración de frame fuera de rango." }
         require(x in 0..511 && y in 0..255 && priority in 0..3 && paletteBank in 0..15) { "Coordenadas, prioridad o paleta fuera de rango." }
@@ -39,7 +39,7 @@ object GbaSpriteStudio {
     }
 
     fun oamAttributes(x:Int,y:Int,width:Int,height:Int,tileIndex:Int=0,priority:Int=0,paletteBank:Int=0,horizontalFlip:Boolean=false,verticalFlip:Boolean=false):GbaOamAttributes {
-        require(width to height in legalSizes) { "Dimensiones OBJ no válidas." }
+        require((width to height) in legalSizes) { "Dimensiones OBJ no válidas." }
         require(x in 0..511 && y in 0..255 && tileIndex in 0..1023 && priority in 0..3 && paletteBank in 0..15) { "Atributos OAM fuera de rango." }
         val (shape,size)=when {
             width==height -> 0 to when(width){8->0;16->1;32->2;else->3}
@@ -57,16 +57,16 @@ object GbaSpriteStudio {
         require(sheet.frames.isNotEmpty()) { "Animación vacía." }
         return buildString {
             append("#include <stdint.h>\n\n")
-            append("const uint16_t \${symbol}_palette[\${sheet.paletteBgr555.size}] = {\n")
+            append("const uint16_t ${symbol}_palette[${sheet.paletteBgr555.size}] = {\n")
             append(sheet.paletteBgr555.joinToString(", "){"0x%04X".format(it)}).append("\n};\n\n")
             sheet.frames.forEach { frame ->
-                append("const uint8_t \${symbol}_frame_\${frame.index}[\${frame.tileData4bpp.size}] = {\n")
+                append("const uint8_t ${symbol}_frame_${frame.index}[${frame.tileData4bpp.size}] = {\n")
                 frame.tileData4bpp.forEachIndexed { i,b -> if(i%16==0) append("    "); append("0x%02X".format(b.toInt() and 255)); append(if(i==frame.tileData4bpp.lastIndex) "\n" else ", "); if(i%16==15) append("\n") }
                 append("};\n")
             }
-            append("\nconst uint16_t \${symbol}_frame_duration_ms[\${sheet.frames.size}] = { ")
+            append("\nconst uint16_t ${symbol}_frame_duration_ms[${sheet.frames.size}] = { ")
             append(sheet.frames.joinToString(", "){it.durationMs.toString()}).append(" };\n")
-            append("const uint16_t \${symbol}_oam[\${sheet.frames.size}][3] = {\n")
+            append("const uint16_t ${symbol}_oam[${sheet.frames.size}][3] = {\n")
             sheet.frames.forEach { f -> append("    { 0x%04X, 0x%04X, 0x%04X },\n".format(f.oam.attr0,f.oam.attr1,f.oam.attr2)) }
             append("};\n")
         }
