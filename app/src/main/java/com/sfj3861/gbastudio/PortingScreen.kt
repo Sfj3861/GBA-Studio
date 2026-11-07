@@ -30,7 +30,7 @@ fun PortingScreen(){
         Text("Analizador estático preliminar. Busca dependencias de escritorio y patrones que pueden requerir adaptación; no certifica compatibilidad ni sustituye una compilación.")
         Button(onClick={projects=repository.list();selectedId=projects.firstOrNull()?.id;report=null}){Text("Actualizar proyectos")}
         projects.forEach{project->
-            Button(onClick={selectedId=project.id;report=null}){Text(if(project.id==selectedId)"✓ \${project.name}" else project.name)}
+            Button(onClick={selectedId=project.id;report=null}){Text(if(project.id==selectedId)"✓ ${project.name}" else project.name)}
         }
         Button(enabled=selected!=null,onClick={
             val project=selected
@@ -39,9 +39,9 @@ fun PortingScreen(){
         report?.let{result->
             Card(colors=CardDefaults.cardColors(containerColor=MaterialTheme.colorScheme.surface)){
                 Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
-                    Text("\${result.filesScanned} archivos · \${result.sourceBytes} bytes")
-                    Text("\${result.findings.size} observaciones")
-                    result.findings.forEach{finding->Text("\${finding.severity} · \${finding.file}: \${finding.message}",color=if(finding.severity=="WARNING")MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary)}
+                    Text("${result.filesScanned} archivos · ${result.sourceBytes} bytes")
+                    Text("${result.findings.size} observaciones")
+                    result.findings.forEach{finding->Text("${finding.severity} · ${finding.file}: ${finding.message}",color=if(finding.severity=="WARNING")MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary)}
                 }
             }
         }
