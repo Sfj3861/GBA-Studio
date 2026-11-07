@@ -46,7 +46,7 @@ fun SpriteAudioToolsScreen() {
         scope.launch { try {
             withContext(Dispatchers.IO){context.contentResolver.openOutputStream(uri)?.use{it.write(bytes)}?:error("No se pudo abrir el destino.")}
             status="$label exportado correctamente."
-        } catch(e:Exception){status="Error al exportar: \${e.message}"} }
+        } catch(e:Exception){status="Error al exportar: ${e.message}"} }
     }
     val openImage=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
         if(uri!=null){busy=true;scope.launch{try{
@@ -57,16 +57,16 @@ fun SpriteAudioToolsScreen() {
                 context.contentResolver.openInputStream(uri)?.use{BitmapFactory.decodeStream(it)}?:error("No se pudo decodificar.")
             }
             bitmap?.takeUnless{it.isRecycled}?.recycle();bitmap=decoded;sprites=null
-            status="Spritesheet cargado: \${decoded.width}×\${decoded.height}. Configura el tamaño de cada frame."
-        }catch(e:Exception){status="Error: \${e.message}"}finally{busy=false}}}
+            status="Spritesheet cargado: ${decoded.width}×${decoded.height}. Configura el tamaño de cada frame."
+        }catch(e:Exception){status="Error: ${e.message}"}finally{busy=false}}}
     }
     val openWav=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
         if(uri!=null){busy=true;scope.launch{try{
             val bytes=withContext(Dispatchers.IO){context.contentResolver.openInputStream(uri)?.use{it.readBoundedBytes(GbaWavConverter.MAX_INPUT_BYTES)}?:error("No se pudo leer el WAV.")}
             val converted=withContext(Dispatchers.Default){GbaWavConverter.convert(bytes,sampleRate.toIntOrNull()?:16_384)}
             pcm=converted
-            status="Audio convertido: \${converted.samplesUnsigned8.size} muestras · \${converted.sampleRate} Hz · \${converted.durationMs} ms."
-        }catch(e:Exception){pcm=null;status="Error WAV: \${e.message}"}finally{busy=false}}}
+            status="Audio convertido: ${converted.samplesUnsigned8.size} muestras · ${converted.sampleRate} Hz · ${converted.durationMs} ms."
+        }catch(e:Exception){pcm=null;status="Error WAV: ${e.message}"}finally{busy=false}}}
     }
     val saveSprite=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-c")){uri->
         write(uri,sprites?.let{GbaSpriteStudio.animationCSource(it).toByteArray(Charsets.UTF_8)},"Código C de sprites")
@@ -86,7 +86,7 @@ fun SpriteAudioToolsScreen() {
             Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                 Text("Sprite Studio · OBJ/OAM",style=MaterialTheme.typography.titleMedium)
                 Button(enabled=!busy,onClick={openImage.launch(arrayOf("image/*"))}){Text("Importar spritesheet")}
-                Text(bitmap?.let{"Imagen: \${it.width}×\${it.height}"}?:"Ningún spritesheet cargado")
+                Text(bitmap?.let{"Imagen: ${it.width}×${it.height}"}?:"Ningún spritesheet cargado")
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
                     OutlinedTextField(frameWidth,{frameWidth=it.filter(Char::isDigit).take(2)},label={Text("Ancho frame")},modifier=Modifier.weight(1f),singleLine=true)
                     OutlinedTextField(frameHeight,{frameHeight=it.filter(Char::isDigit).take(2)},label={Text("Alto frame")},modifier=Modifier.weight(1f),singleLine=true)
@@ -96,11 +96,11 @@ fun SpriteAudioToolsScreen() {
                     if(source!=null){busy=true;scope.launch{try{
                         sprites=withContext(Dispatchers.Default){GbaSpriteStudio.build(source,frameWidth.toInt(),frameHeight.toInt())}
                         val result=sprites!!
-                        status="Spritesheet dividido en \${result.frames.size} frames; \${result.frames.firstOrNull()?.tileCount?:0} tiles por frame. Paleta compartida."
-                    }catch(e:Exception){sprites=null;status="No se pudo procesar el spritesheet: \${e.message}"}finally{busy=false}}}
+                        status="Spritesheet dividido en ${result.frames.size} frames; ${result.frames.firstOrNull()?.tileCount?:0} tiles por frame. Paleta compartida."
+                    }catch(e:Exception){sprites=null;status="No se pudo procesar el spritesheet: ${e.message}"}finally{busy=false}}}
                 }){Text("Generar frames y OAM")}
                 sprites?.let{result->
-                    Text("\${result.frames.size} frames · \${result.frameWidth}×\${result.frameHeight} · \${result.paletteBgr555.size} colores")
+                    Text("${result.frames.size} frames · ${result.frameWidth}×${result.frameHeight} · ${result.paletteBgr555.size} colores")
                     result.warnings.forEach{Text("Aviso: $it",color=MaterialTheme.colorScheme.tertiary)}
                     OutlinedButton(enabled=!busy,onClick={saveSprite.launch("sprite_animation.c")}){Text("Exportar animación C + OAM")}
                 }
@@ -111,7 +111,7 @@ fun SpriteAudioToolsScreen() {
                 Text("Audio Studio · WAV PCM",style=MaterialTheme.typography.titleMedium)
                 OutlinedTextField(sampleRate,{sampleRate=it.filter(Char::isDigit).take(5)},label={Text("Frecuencia GBA (Hz)")},singleLine=true)
                 Button(enabled=!busy,onClick={openWav.launch(arrayOf("audio/wav","audio/x-wav","application/octet-stream"))}){Text("Importar WAV PCM")}
-                pcm?.let{Text("\${it.durationMs} ms · \${it.samplesUnsigned8.size} muestras · \${it.sourceChannels} canal(es) de origen")}
+                pcm?.let{Text("${it.durationMs} ms · ${it.samplesUnsigned8.size} muestras · ${it.sourceChannels} canal(es) de origen")}
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
                     OutlinedButton(enabled=pcm!=null&&!busy,onClick={saveAudioC.launch("audio_samples.c")}){Text("Exportar C")}
                     OutlinedButton(enabled=pcm!=null&&!busy,onClick={saveAudioWav.launch("audio_gba.wav")}){Text("Exportar WAV")}
