@@ -340,6 +340,7 @@ class GbaEmulatorCore(
             op and 0x0C000000 == 0x04000000 -> executeArmSingleTransfer(op, pc)
             op and 0x0F8000F0 == 0x00800090 -> throw IllegalArgumentException("Multiplicación ARM long todavía no implementada.")
             op and 0x0E000090 == 0x00000090 -> throw IllegalArgumentException("Transferencia ARM halfword/miscelánea todavía no implementada.")
+            op and 0x0E000000 == 0x08000000 -> executeArmBlockTransfer(op, pc)
             op and 0x0FBF0FFF == 0x010F0000 ||
                 op and 0x0FB0FFF0 == 0x0120F000 ||
                 op and 0x0FB0F000 == 0x0320F000 ->
@@ -398,6 +399,55 @@ class GbaEmulatorCore(
         if (!preIndexed || writeBack) regs[rn] = adjusted
         if (rd != 15 || !load) regs[15] = pc + 4
         else regs[15] = regs[15] and -4
+    }
+
+    /**
+     * Implements ARM LDM/STM addressing modes (IA, IB, DA, DB).
+     * User-bank transfers and SPSR restoration are intentionally excluded.
+     */
+    private fun executeArmBlockTransfer(op: Int, pc: Int) {
+        val preIndexed = op and (1 shl 24) != 0
+        val addOffset = op and (1 shl 23) != 0
+        val userBank = op and (1 shl 22) != 0
+        val writeBack = op and (1 shl 21) != 0
+        val load = op and (1 shl 20) != 0
+        val baseRegister = (op ushr 16) and 15
+        val registerMask = op and 0xFFFF
+        require(!userBank) { "LDM/STM con banco de usuario o restauración SPSR no implementado." }
+        require(baseRegister != 15) { "LDM/STM no admite PC como registro base en este stepper." }
+        require(registerMask != 0) { "LDM/STM requiere al menos un registro." }
+
+        val registers = (0..15).filter { registerMask and (1 shl it) != 0 }
+        require(!(writeBack && baseRegister in registers)) {
+            "LDM/STM con writeback y registro base en la lista no está soportado."
+        }
+        val base = regs[baseRegister]
+        require((base and 3) == 0) { "La dirección base de LDM/STM debe estar alineada a 4 bytes." }
+        val byteCount = registers.size * 4
+        val firstAddress = when {
+            addOffset && preIndexed -> base + 4
+            addOffset -> base
+            preIndexed -> base - byteCount
+            else -> base - byteCount + 4
+        }
+
+        registers.forEachIndexed { index, register ->
+            val address = firstAddress + index * 4
+            if (load) {
+                val value = readMemory32(address)
+                if (register == 15) regs[15] = value and -4 else regs[register] = value
+            } else {
+                val value = if (register == 15) pc + 12 else regs[register]
+                writeMemory32(address, value)
+            }
+        }
+
+        if (writeBack) regs[baseRegister] = if (addOffset) base + byteCount else base - byteCount
+        if (load && registerMask and (1 shl 15) != 0) {
+            regs[15] = regs[15] and -4
+        } else {
+            regs[15] = pc + 4
+        }
     }
 
     private fun executeThumbRegisterTransfer(op: Int) {
