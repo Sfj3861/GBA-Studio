@@ -64,6 +64,8 @@ object AiProjectContextBuilder {
             match.value.substringBefore(":").substringBefore("=").trimEnd()+"=[REDACTED]"
         }) { "[REDACTED_API_KEY]" }
 
+    internal fun sanitizeForSharing(text:String)=redactSecrets(text)
+
     /** Only explicitly selected, ordinary source/document files are included. */
     fun build(project:GbaProject,repository:ProjectRepository,selectedPaths:List<String>):AiProjectContext {
         require(selectedPaths.size<=64) { "Selecciona como máximo 64 archivos." }
