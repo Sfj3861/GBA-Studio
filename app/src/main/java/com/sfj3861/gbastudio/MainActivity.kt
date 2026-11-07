@@ -48,6 +48,7 @@ private enum class Destination(val label: String, val marker: String) {
     PORTING("Portabilidad", "⇄"),
     ROM("ROM Analyzer", "▤"),
     ASSETS("Asset Studio", "▦"),
+    SPRITE_AUDIO("Sprites y audio", "♫"),
     DISASSEMBLER("Desensamblador", "⌘"),
     LINKER("Linker", "⇧"),
     DIAGNOSTICS("Diagnósticos", "✓"),
@@ -177,12 +178,14 @@ private fun DestinationContent(destination: Destination, navigate: (Destination)
         Destination.PROJECTS -> ProjectManagerScreen(ProjectRepository(LocalContext.current))
         Destination.CODE -> ProjectManagerScreen(ProjectRepository(LocalContext.current), "Code Studio · Elige un proyecto")
         Destination.TUTORIALS -> TutorialScreen()
-        Destination.AI -> AiScreen()
+        Destination.AI -> AiSettingsScreen()
         Destination.ROM -> RomAnalyzerScreen()
         Destination.DISASSEMBLER -> DisassemblerScreen()
         Destination.LINKER -> LinkerScreen()
         Destination.DIAGNOSTICS -> DiagnosticsScreen()
         Destination.ASSETS -> AssetStudioScreen()
+        Destination.SPRITE_AUDIO -> SpriteAudioToolsScreen()
+        Destination.PORTING -> PortingScreen()
         Destination.EMULATOR -> EmulatorScreen()
         else -> ModulePlaceholder(destination)
     }
@@ -229,6 +232,7 @@ private fun HomeScreen(navigate: (Destination) -> Unit) {
             Triple(Destination.PORTING, "Portabilidad", "Preparación de proyectos para GBA."),
             Triple(Destination.ROM, "ROM Analyzer", "Inspección de cabeceras y estructura ROM."),
             Triple(Destination.ASSETS, "Asset Studio", "Importa imágenes y conviértelas a tiles 4bpp y paletas GBA."),
+            Triple(Destination.SPRITE_AUDIO, "Sprites y audio", "Crea frames OBJ/OAM y convierte WAV PCM a recursos C."),
             Triple(Destination.DISASSEMBLER, "Desensamblador", "Inspecciona instrucciones ARM y Thumb de una ROM."),
             Triple(Destination.LINKER, "Linker", "Empaqueta secciones raw y genera una imagen ROM experimental."),
             Triple(Destination.DIAGNOSTICS, "Diagnósticos", "Busca problemas frecuentes en código C/C++."),
