@@ -464,25 +464,23 @@ fun EmulatorScreen() {
     var loading by remember { mutableStateOf(false) }
     var romData by remember { mutableStateOf<ByteArray?>(null) }
     var core by remember { mutableStateOf<GbaEmulatorCore?>(null) }
+    var debugger by remember { mutableStateOf<GbaDebuggerSession?>(null) }
+    var breakpointAddress by remember { mutableStateOf("080000C0") }
+    var memoryAddress by remember { mutableStateOf("02000000") }
+    var memoryDump by remember { mutableStateOf("") }
     var snapshot by remember { mutableStateOf<EmulatorSnapshot?>(null) }
     var running by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Carga una ROM GBA para iniciar la prueba de CPU.") }
 
     LaunchedEffect(running, core) {
-        val activeCore = core
-        if (running && activeCore != null) {
+        val activeDebugger = debugger
+        if (running && activeDebugger != null) {
             while (true) {
-                val latest = withContext(Dispatchers.Default) {
-                    var batch = activeCore.snapshot()
-                    repeat(250) {
-                        if (!batch.halted) batch = activeCore.step()
-                    }
-                    batch
-                }
-                snapshot = latest
-                if (latest.halted) {
+                val result = withContext(Dispatchers.Default) { activeDebugger.run(250) }
+                snapshot = result.cpu
+                if (result.cpu.halted || result.stoppedAtBreakpoint) {
                     running = false
-                    status = latest.message
+                    status = if (result.stoppedAtBreakpoint) "Breakpoint alcanzado en 0x%08X".format(result.cpu.pc) else result.cpu.message
                     break
                 }
                 delay(16)
@@ -500,6 +498,7 @@ fun EmulatorScreen() {
                     val newCore = withContext(Dispatchers.Default) { GbaEmulatorCore(data) }
                     romData = data
                     core = newCore
+                    debugger = GbaDebuggerSession(newCore)
                     snapshot = newCore.snapshot()
                     status = "ROM cargada: ${data.size} bytes"
                 } catch (error: Exception) {
@@ -526,13 +525,13 @@ fun EmulatorScreen() {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 enabled = core != null && snapshot?.halted == false && !running && !loading,
-                onClick = { snapshot = core?.step(); status = snapshot?.message ?: status }
+                onClick = { snapshot = debugger?.step()?.cpu; status = snapshot?.message ?: status }
             ) { Text("Un paso") }
             OutlinedButton(
                 enabled = core != null && snapshot?.halted == false && !running && !loading,
                 onClick = {
                     repeat(100) {
-                        if (snapshot?.halted != true) snapshot = core?.step()
+                        if (snapshot?.halted != true) snapshot = debugger?.step()?.cpu
                     }
                     status = snapshot?.message ?: status
                 }
@@ -542,6 +541,28 @@ fun EmulatorScreen() {
                 onClick = { running = !running }
             ) { Text(if (running) "Pausar" else "Ejecutar") }
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value = breakpointAddress, onValueChange = { breakpointAddress = it.take(8) }, label = { Text("Breakpoint (hex)") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedButton(enabled = debugger != null, onClick = {
+                val address = breakpointAddress.toLongOrNull(16)?.toInt()
+                if (address != null) runCatching { debugger?.addBreakpoint(address) }
+                    .onSuccess { status = "Breakpoint añadido: 0x%08X".format(address) }
+                    .onFailure { status = "Breakpoint inválido: ${it.message}" }
+                else status = "Dirección hexadecimal no válida."
+            }) { Text("Añadir") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = debugger != null, onClick = { debugger?.clearBreakpoints(); status = "Breakpoints eliminados." }) { Text("Limpiar breakpoints") }
+            OutlinedButton(enabled = debugger != null, onClick = { status = debugger?.snapshot()?.trace?.takeLast(8)?.joinToString("\n") ?: "" }) { Text("Ver traza") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value = memoryAddress, onValueChange = { memoryAddress = it.take(8) }, label = { Text("Memoria (hex)") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedButton(enabled = debugger != null, onClick = {
+                val address = memoryAddress.toLongOrNull(16)?.toInt()
+                memoryDump = if (address != null) runCatching { debugger?.readMemoryHex(address, 32) ?: "" }.getOrElse { "Error: ${it.message}" } else "Dirección inválida"
+            }) { Text("Leer 32 B") }
+        }
+        if (memoryDump.isNotBlank()) Text(memoryDump, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
         OutlinedButton(
             enabled = romData != null && !loading,
             onClick = {
@@ -553,6 +574,7 @@ fun EmulatorScreen() {
                         try {
                             val newCore = withContext(Dispatchers.Default) { GbaEmulatorCore(data) }
                             core = newCore
+                            debugger = GbaDebuggerSession(newCore)
                             snapshot = newCore.snapshot()
                             status = "CPU reiniciada desde el punto de entrada."
                         } catch (error: Exception) {
