@@ -692,6 +692,8 @@ class GbaEmulatorCore(
 
     private companion object {
         const val ROM_BASE = 0x08000000
+        const val EWRAM_BASE = 0x02000000
+        const val IWRAM_BASE = 0x03000000
         const val N_FLAG = 1 shl 31
         const val Z_FLAG = 1 shl 30
         const val C_FLAG = 1 shl 29
