@@ -1,6 +1,8 @@
 package com.sfj3861.gbastudio
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -41,12 +44,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.io.ByteArrayOutputStream
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun DisassemblerScreen() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var loading by remember { mutableStateOf(false) }
     var bytes by remember { mutableStateOf<ByteArray?>(null) }
     var label by remember { mutableStateOf("Ninguna ROM seleccionada") }
     var thumb by remember { mutableStateOf(false) }
@@ -55,21 +62,30 @@ fun DisassemblerScreen() {
     var rows by remember { mutableStateOf(emptyList<DisassembledInstruction>()) }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            runCatching {
-                context.contentResolver.openInputStream(uri)?.use { it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE) }
-                    ?: error("No se pudo abrir el archivo.")
-            }.onSuccess { data ->
-                bytes = data
-                label = uri.lastPathSegment ?: "ROM importada"
-                rows = emptyList()
-            }.onFailure { bytes = null; label = "Error al importar: ${it.message}"; rows = emptyList() }
+            loading = true
+            scope.launch {
+                try {
+                    val data = readDocumentBytes(context, uri, GbaLinker.MAX_ROM_SIZE)
+                    bytes = data
+                    label = uri.lastPathSegment ?: "ROM importada"
+                    rows = emptyList()
+                } catch (error: Exception) {
+                    bytes = null
+                    label = "Error al importar: ${error.message}"
+                    rows = emptyList()
+                } finally {
+                    loading = false
+                }
+            }
         }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Desensamblador ARM / Thumb", style = MaterialTheme.typography.headlineMedium)
         Text("Inspecciona instrucciones de una ROM GBA. El decodificador cubre un subconjunto de ARM7TDMI; las instrucciones desconocidas se muestran como datos.")
-        Button(onClick = { open.launch(arrayOf("*/*")) }) { Text("Abrir ROM o binario") }
-        Text(label, color = MaterialTheme.colorScheme.secondary)
+        Button(enabled = !loading, onClick = { open.launch(arrayOf("*/*")) }) {
+            Text(if (loading) "Leyendo ROM…" else "Abrir ROM o binario")
+        }
+        Text(if (loading) "Importando archivo en segundo plano…" else label, color = MaterialTheme.colorScheme.secondary)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Modo Thumb")
             Switch(checked = thumb, onCheckedChange = { thumb = it; rows = emptyList() })
@@ -128,6 +144,8 @@ fun DiagnosticsScreen() {
 @Composable
 fun LinkerScreen() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var loading by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf<ByteArray?>(null) }
     var fileName by remember { mutableStateOf("Ningún binario seleccionado") }
     var title by remember { mutableStateOf("MY GBA GAME") }
@@ -138,19 +156,22 @@ fun LinkerScreen() {
     var output by remember { mutableStateOf<ByteArray?>(null) }
     var report by remember { mutableStateOf("") }
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching {
-            context.contentResolver.openInputStream(uri)?.use {
-                it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE - GbaLinker.HEADER_SIZE)
-            } ?: error("No se pudo abrir el binario.")
-        }.onSuccess {
-            input = it
-            fileName = uri.lastPathSegment ?: "binary.bin"
-            output = null
-            report = ""
-        }.onFailure {
-            input = null
-            output = null
-            fileName = "Error al importar: ${it.message}"
+        if (uri != null) {
+            loading = true
+            scope.launch {
+                try {
+                    input = readDocumentBytes(context, uri, GbaLinker.MAX_ROM_SIZE - GbaLinker.HEADER_SIZE)
+                    fileName = uri.lastPathSegment ?: "binary.bin"
+                    output = null
+                    report = ""
+                } catch (error: Exception) {
+                    input = null
+                    output = null
+                    fileName = "Error al importar: ${error.message}"
+                } finally {
+                    loading = false
+                }
+            }
         }
     }
     val openLogo = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -168,30 +189,66 @@ fun LinkerScreen() {
         }.onFailure { logo = null; logoName = "Error: ${it.message}" }
     }
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && output != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino de exportación.")
-            stream.use { it.write(output!!) }
-        }.onSuccess { report += "\nROM exportada." }.onFailure { report += "\nError al exportar: ${it.message}" }
+        val data = output
+        if (uri != null && data != null) {
+            scope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        val stream = context.contentResolver.openOutputStream(uri)
+                            ?: error("No se pudo abrir el destino de exportación.")
+                        stream.use { it.write(data) }
+                    }
+                    report += "\nROM exportada."
+                } catch (error: Exception) {
+                    report += "\nError al exportar: ${error.message}"
+                }
+            }
+        }
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Linker / ROM image builder", style = MaterialTheme.typography.headlineMedium)
         Text("Empaqueta un binario raw, genera el salto de entrada ARM y construye los campos de cabecera GBA. El motor interno también admite símbolos y relocaciones, aunque esta pantalla ofrece el flujo simplificado de un único binario.")
-        Button(onClick = { open.launch(arrayOf("*/*")) }) { Text("Seleccionar binario de código") }
+        Button(enabled = !loading, onClick = { open.launch(arrayOf("*/*")) }) {
+            Text(if (loading) "Leyendo binario…" else "Seleccionar binario de código")
+        }
         Text(fileName)
         OutlinedButton(onClick = { openLogo.launch(arrayOf("*/*")) }) { Text("Importar bloque de logo GBA (156 bytes, opcional)") }
         Text(logoName, color = MaterialTheme.colorScheme.secondary)
         OutlinedTextField(value = title, onValueChange = { title = it.take(12); output = null }, label = { Text("Título (máx. 12)") }, singleLine = true)
         OutlinedTextField(value = gameCode, onValueChange = { gameCode = it.take(4).uppercase(); output = null }, label = { Text("Game Code (4)") }, singleLine = true)
         OutlinedTextField(value = maker, onValueChange = { maker = it.take(2).uppercase(); output = null }, label = { Text("Maker Code (2)") }, singleLine = true)
-        Button(enabled = input != null, onClick = {
-            runCatching {
-                val result = GbaLinker.linkRawSections(listOf(GbaSection("code.bin", input!!)), title, gameCode, maker, nintendoLogo = logo)
-                output = result.image
-                val entry = (result.image[0].toLong() and 255) or ((result.image[1].toLong() and 255) shl 8) or ((result.image[2].toLong() and 255) shl 16) or ((result.image[3].toLong() and 255) shl 24)
-                report = "Imagen: ${result.image.size} bytes\nPunto de entrada: 0x%08X".format(0x08000008L + ((entry and 0x00FFFFFFL) shl 2)) + "\nChecksum de cabecera: ${if (GbaRomHeader.hasValidComplement(result.image)) "correcto" else "incorrecto"}\n" + result.sections.joinToString("\n") { "${it.name}: 0x${it.address.toString(16).uppercase()} · ${it.size} bytes · archivo +0x${it.fileOffset.toString(16).uppercase()}" } + "\n" + result.warnings.joinToString("\n")
-            }.onFailure { report = "Error: ${it.message}" }
-        }) { Text("Construir imagen ROM") }
-        if (output != null) OutlinedButton(onClick = { save.launch("game-experimental.gba") }) { Text("Exportar .gba experimental") }
+        Button(enabled = input != null && !loading, onClick = {
+            val binary = input
+            if (binary != null) {
+                val gameTitle = title
+                val code = gameCode
+                val makerCode = maker
+                val logoData = logo
+                loading = true
+                scope.launch {
+                    try {
+                        val result = withContext(Dispatchers.Default) {
+                            GbaLinker.linkRawSections(
+                                listOf(GbaSection("code.bin", binary)),
+                                gameTitle,
+                                code,
+                                makerCode,
+                                nintendoLogo = logoData
+                            )
+                        }
+                        output = result.image
+                        val entry = (result.image[0].toLong() and 255) or ((result.image[1].toLong() and 255) shl 8) or ((result.image[2].toLong() and 255) shl 16) or ((result.image[3].toLong() and 255) shl 24)
+                        report = "Imagen: ${result.image.size} bytes\nPunto de entrada: 0x%08X".format(0x08000008L + ((entry and 0x00FFFFFFL) shl 2)) + "\nChecksum de cabecera: ${if (GbaRomHeader.hasValidComplement(result.image)) "correcto" else "incorrecto"}\n" + result.sections.joinToString("\n") { "${it.name}: 0x${it.address.toString(16).uppercase()} · ${it.size} bytes · archivo +0x${it.fileOffset.toString(16).uppercase()}" } + "\n" + result.warnings.joinToString("\n")
+                    } catch (error: Exception) {
+                        output = null
+                        report = "Error: ${error.message}"
+                    } finally {
+                        loading = false
+                    }
+                }
+            }
+        }) { Text(if (loading) "Procesando…" else "Construir imagen ROM") }
+        if (output != null) OutlinedButton(enabled = !loading, onClick = { save.launch("game-experimental.gba") }) { Text("Exportar .gba experimental") }
         if (report.isNotBlank()) Text(report, color = MaterialTheme.colorScheme.secondary)
     }
 }
@@ -358,6 +415,8 @@ fun AssetStudioScreen() {
 @Composable
 fun EmulatorScreen() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var loading by remember { mutableStateOf(false) }
     var romData by remember { mutableStateOf<ByteArray?>(null) }
     var core by remember { mutableStateOf<GbaEmulatorCore?>(null) }
     var snapshot by remember { mutableStateOf<EmulatorSnapshot?>(null) }
@@ -368,9 +427,12 @@ fun EmulatorScreen() {
         val activeCore = core
         if (running && activeCore != null) {
             while (true) {
-                var latest = activeCore.snapshot()
-                repeat(250) {
-                    if (!latest.halted) latest = activeCore.step()
+                val latest = withContext(Dispatchers.Default) {
+                    var batch = activeCore.snapshot()
+                    repeat(250) {
+                        if (!batch.halted) batch = activeCore.step()
+                    }
+                    batch
                 }
                 snapshot = latest
                 if (latest.halted) {
@@ -386,27 +448,23 @@ fun EmulatorScreen() {
     val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             running = false
-            runCatching {
-                context.contentResolver.openInputStream(uri)?.use {
-                    it.readBoundedBytes(GbaLinker.MAX_ROM_SIZE)
-                } ?: error("No se pudo leer la ROM.")
-            }.onSuccess { data ->
-                runCatching { GbaEmulatorCore(data) }.onSuccess { newCore ->
+            loading = true
+            scope.launch {
+                try {
+                    val data = readDocumentBytes(context, uri, GbaLinker.MAX_ROM_SIZE)
+                    val newCore = withContext(Dispatchers.Default) { GbaEmulatorCore(data) }
                     romData = data
                     core = newCore
                     snapshot = newCore.snapshot()
                     status = "ROM cargada: ${data.size} bytes"
-                }.onFailure {
+                } catch (error: Exception) {
                     romData = null
                     core = null
                     snapshot = null
-                    status = "No se pudo iniciar: ${it.message}"
+                    status = "Error al importar o iniciar: ${error.message}"
+                } finally {
+                    loading = false
                 }
-            }.onFailure {
-                romData = null
-                core = null
-                snapshot = null
-                status = "Error al importar: ${it.message}"
             }
         }
     }
@@ -417,14 +475,16 @@ fun EmulatorScreen() {
     ) {
         Text("Emulador experimental", style = MaterialTheme.typography.headlineMedium)
         Text("Stepper ARM7TDMI parcial para depuración. Puede ejecutar algunas instrucciones aritméticas, saltos y accesos ROM/EWRAM/IWRAM; no emula vídeo, sonido, BIOS ni periféricos GBA.")
-        Button(onClick = { running = false; open.launch(arrayOf("*/*")) }) { Text("Abrir ROM GBA") }
+        Button(enabled = !loading, onClick = { running = false; open.launch(arrayOf("*/*")) }) {
+            Text(if (loading) "Cargando ROM…" else "Abrir ROM GBA")
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                enabled = core != null && snapshot?.halted == false && !running,
+                enabled = core != null && snapshot?.halted == false && !running && !loading,
                 onClick = { snapshot = core?.step(); status = snapshot?.message ?: status }
             ) { Text("Un paso") }
             OutlinedButton(
-                enabled = core != null && snapshot?.halted == false && !running,
+                enabled = core != null && snapshot?.halted == false && !running && !loading,
                 onClick = {
                     repeat(100) {
                         if (snapshot?.halted != true) snapshot = core?.step()
@@ -433,26 +493,39 @@ fun EmulatorScreen() {
                 }
             ) { Text("100 pasos") }
             OutlinedButton(
-                enabled = core != null && snapshot?.halted == false,
+                enabled = core != null && snapshot?.halted == false && !loading,
                 onClick = { running = !running }
             ) { Text(if (running) "Pausar" else "Ejecutar") }
         }
         OutlinedButton(
-            enabled = romData != null,
+            enabled = romData != null && !loading,
             onClick = {
-                running = false
-                runCatching { GbaEmulatorCore(romData!!) }
-                    .onSuccess {
-                        core = it
-                        snapshot = it.snapshot()
-                        status = "CPU reiniciada desde el punto de entrada."
+                val data = romData
+                if (data != null) {
+                    running = false
+                    loading = true
+                    scope.launch {
+                        try {
+                            val newCore = withContext(Dispatchers.Default) { GbaEmulatorCore(data) }
+                            core = newCore
+                            snapshot = newCore.snapshot()
+                            status = "CPU reiniciada desde el punto de entrada."
+                        } catch (error: Exception) {
+                            status = "No se pudo reiniciar: ${error.message}"
+                        } finally {
+                            loading = false
+                        }
                     }
-                    .onFailure { status = "No se pudo reiniciar: ${it.message}" }
+                }
             }
         ) { Text("Reiniciar CPU") }
 
         Text(
-            if (running) "Ejecución continua: 250 instrucciones por ciclo de interfaz" else status,
+            when {
+                loading -> "Cargando ROM o preparando CPU en segundo plano…"
+                running -> "Ejecución continua: 250 instrucciones por ciclo"
+                else -> status
+            },
             color = MaterialTheme.colorScheme.secondary
         )
         snapshot?.let { state ->
@@ -470,3 +543,10 @@ fun EmulatorScreen() {
         }
     }
 }
+
+
+private suspend fun readDocumentBytes(context: Context, uri: Uri, maxBytes: Int): ByteArray =
+    withContext(Dispatchers.IO) {
+        context.contentResolver.openInputStream(uri)?.use { it.readBoundedBytes(maxBytes) }
+            ?: error("No se pudo abrir el archivo.")
+    }
