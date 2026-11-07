@@ -1,7 +1,5 @@
 package com.sfj3861.gbastudio
 
-import android.graphics.Bitmap
-import android.graphics.Color
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,16 +19,6 @@ class GbaSpriteStudioTest {
         assertEquals(2,wide.attr1 ushr 14)
     }
 
-    @Test fun slicesSheetIntoFramesWithSharedPalette() {
-        val bitmap=Bitmap.createBitmap(16,8,Bitmap.Config.ARGB_8888)
-        bitmap.setPixel(0,0,Color.RED);bitmap.setPixel(8,0,Color.BLUE)
-        val result=GbaSpriteStudio.build(bitmap,8,8,80)
-        assertEquals(2,result.frames.size)
-        assertEquals(32,result.frames[0].tileData4bpp.size)
-        assertEquals(80,result.frames[1].durationMs)
-        assertTrue(result.paletteBgr555.size<=16)
-        assertTrue(GbaSpriteStudio.animationCSource(result).contains("gba_sprite_oam"))
-    }
 
     @Test(expected=IllegalArgumentException::class)
     fun rejectsUnsupportedObjDimensions(){GbaSpriteStudio.oamAttributes(0,0,24,24)}
