@@ -14,12 +14,17 @@ class GbaDebuggerSession(private val core:GbaEmulatorCore,private val traceLimit
     private var breakpointStop=false
     init { require(traceLimit in 1..4096) }
 
+    @Synchronized
     fun snapshot()=DebuggerSnapshot(core.snapshot(),breakpoints.toSet(),breakpointStop,trace.toList())
+    @Synchronized
     fun addBreakpoint(address:Int){require(address>=0);breakpoints+=address}
+    @Synchronized
     fun removeBreakpoint(address:Int){breakpoints-=address}
+    @Synchronized
     fun clearBreakpoints(){breakpoints.clear()}
 
     /** Single-step deliberately executes one instruction even if the current PC has a breakpoint. */
+    @Synchronized
     fun step():DebuggerSnapshot {
         val before=core.snapshot()
         if(!before.halted) {
@@ -31,6 +36,7 @@ class GbaDebuggerSession(private val core:GbaEmulatorCore,private val traceLimit
     }
 
     /** Executes at most maxInstructions, stopping before the next breakpoint. */
+    @Synchronized
     fun run(maxInstructions:Int=10_000):DebuggerSnapshot {
         require(maxInstructions in 1..1_000_000)
         breakpointStop=false
@@ -45,6 +51,7 @@ class GbaDebuggerSession(private val core:GbaEmulatorCore,private val traceLimit
         return snapshot()
     }
 
+    @Synchronized
     fun readMemoryHex(address:Int,length:Int):String {
         require(length in 1..256) { "La lectura debe ser de 1 a 256 bytes." }
         return (0 until length).joinToString(" ") { i -> "%02X".format(core.readMemory8(address+i)) }
