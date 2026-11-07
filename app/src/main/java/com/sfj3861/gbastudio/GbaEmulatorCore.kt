@@ -25,6 +25,10 @@ class GbaEmulatorCore(
     private val memory = ByteArray(0x02000000)
     private val ewram = ByteArray(256 * 1024)
     private val iwram = ByteArray(32 * 1024)
+    private val io = ByteArray(0x400)
+    private val paletteRam = ByteArray(0x400)
+    private val vram = ByteArray(0x18000)
+    private val oam = ByteArray(0x400)
     private val regs = IntArray(16)
     private var thumb = startInThumb
     private var steps = 0L
@@ -48,6 +52,8 @@ class GbaEmulatorCore(
     }
 
     fun snapshot() = EmulatorSnapshot(regs[15], regs.copyOf(), thumb, steps, halted, message, cpsr)
+
+    fun videoMemorySnapshot() = GbaVideoMemorySnapshot(io.copyOf(), paletteRam.copyOf(), vram.copyOf(), oam.copyOf())
 
     fun step(): EmulatorSnapshot {
         if (halted) return snapshot()
@@ -491,28 +497,38 @@ class GbaEmulatorCore(
         val romBase = ROM_BASE.toLong()
         val ewramBase = EWRAM_BASE.toLong()
         val iwramBase = IWRAM_BASE.toLong()
+        val ioBase = IO_BASE.toLong()
+        val paletteBase = PALETTE_BASE.toLong()
+        val vramBase = VRAM_BASE.toLong()
+        val oamBase = OAM_BASE.toLong()
         return when {
-            start >= romBase && end <= romBase + romSize ->
-                memory to (start - romBase).toInt()
-            start >= ewramBase && end <= ewramBase + ewram.size ->
-                ewram to (start - ewramBase).toInt()
-            start >= iwramBase && end <= iwramBase + iwram.size ->
-                iwram to (start - iwramBase).toInt()
+            start >= romBase && end <= romBase + romSize -> memory to (start - romBase).toInt()
+            start >= ewramBase && end <= ewramBase + ewram.size -> ewram to (start - ewramBase).toInt()
+            start >= iwramBase && end <= iwramBase + iwram.size -> iwram to (start - iwramBase).toInt()
+            start >= ioBase && end <= ioBase + io.size -> io to (start - ioBase).toInt()
+            start >= paletteBase && end <= paletteBase + paletteRam.size -> paletteRam to (start - paletteBase).toInt()
+            start >= vramBase && end <= vramBase + 0x20000L -> {
+                val raw = (start - vramBase).toInt()
+                val mapped = if (raw >= 0x18000) raw - 0x8000 else raw
+                require(mapped + size <= vram.size) { "Acceso VRAM cruza un límite de espejo." }
+                vram to mapped
+            }
+            start >= oamBase && end <= oamBase + oam.size -> oam to (start - oamBase).toInt()
             else -> throw IllegalArgumentException("Acceso a memoria no implementado: 0x%08X".format(address))
         }
     }
 
-    private fun readMemory8(address: Int): Int {
+    fun readMemory8(address: Int): Int {
         val (region, offset) = mapMemory(address, 1)
         return region[offset].toInt() and 255
     }
 
-    private fun readMemory16(address: Int): Int {
+    fun readMemory16(address: Int): Int {
         val (region, offset) = mapMemory(address, 2)
         return (region[offset].toInt() and 255) or ((region[offset + 1].toInt() and 255) shl 8)
     }
 
-    private fun readMemory32(address: Int): Int {
+    fun readMemory32(address: Int): Int {
         val (region, offset) = mapMemory(address, 4)
         return (region[offset].toInt() and 255) or
             ((region[offset + 1].toInt() and 255) shl 8) or
@@ -520,20 +536,20 @@ class GbaEmulatorCore(
             ((region[offset + 3].toInt() and 255) shl 24)
     }
 
-    private fun writeMemory8(address: Int, value: Int) {
+    fun writeMemory8(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 1)
         require(region !== memory) { "La región ROM es de solo lectura." }
         region[offset] = value.toByte()
     }
 
-    private fun writeMemory16(address: Int, value: Int) {
+    fun writeMemory16(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 2)
         require(region !== memory) { "La región ROM es de solo lectura." }
         region[offset] = value.toByte()
         region[offset + 1] = (value ushr 8).toByte()
     }
 
-    private fun writeMemory32(address: Int, value: Int) {
+    fun writeMemory32(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 4)
         require(region !== memory) { "La región ROM es de solo lectura." }
         region[offset] = value.toByte()
@@ -747,6 +763,10 @@ class GbaEmulatorCore(
         const val ROM_BASE = 0x08000000
         const val EWRAM_BASE = 0x02000000
         const val IWRAM_BASE = 0x03000000
+        const val IO_BASE = 0x04000000
+        const val PALETTE_BASE = 0x05000000
+        const val VRAM_BASE = 0x06000000
+        const val OAM_BASE = 0x07000000
         const val N_FLAG = 1 shl 31
         const val Z_FLAG = 1 shl 30
         const val C_FLAG = 1 shl 29
