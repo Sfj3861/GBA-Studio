@@ -55,7 +55,14 @@ data class AiProjectContext(val projectId:String,val includedFiles:Map<String,St
 object AiProjectContextBuilder {
     const val MAX_FILE_CHARS=64_000
     const val MAX_TOTAL_CHARS=256_000
-    private val forbidden=setOf(".env",".env.local","secrets.json","credentials.json","google-services.json","keystore.properties")
+    private val forbidden=setOf(".env",".env.local","secrets.json","credentials.json","google-services.json","keystore.properties","id_rsa","id_ed25519")
+    private val assignmentSecret=Regex("""(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*["']?[^\s"'\r\n]+""")
+    private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
+
+    private fun redactSecrets(text:String):String =
+        providerKey.replace(assignmentSecret.replace(text) { match ->
+            match.value.substringBefore(Regex("""[:=]""")).trimEnd()+"=[REDACTED]"
+        }) { "[REDACTED_API_KEY]" }
 
     /** Only explicitly selected, ordinary source/document files are included. */
     fun build(project:GbaProject,repository:ProjectRepository,selectedPaths:List<String>):AiProjectContext {
@@ -64,11 +71,12 @@ object AiProjectContextBuilder {
         var total=0
         selectedPaths.distinct().forEach { path ->
             val leaf=path.substringAfterLast('/').lowercase()
-            require(leaf !in forbidden && !leaf.endsWith(".keystore") && !leaf.endsWith(".jks") && !leaf.endsWith(".pem")) {
+            require(leaf !in forbidden && listOf(".keystore",".jks",".pem",".p12",".pfx",".key").none { leaf.endsWith(it) }) {
                 "El archivo $path está excluido por seguridad."
             }
-            val content=repository.readText(project,path)
-            require(content.length<=MAX_FILE_CHARS) { "El archivo $path supera el límite de contexto." }
+            val raw=repository.readText(project,path)
+            require(raw.length<=MAX_FILE_CHARS) { "El archivo $path supera el límite de contexto." }
+            val content=redactSecrets(raw)
             require(total+content.length<=MAX_TOTAL_CHARS) { "El contexto supera 256000 caracteres." }
             included[path]=content;total+=content.length
         }
