@@ -128,6 +128,30 @@ class GbaEmulatorCoreTest {
         assertFalse(state.halted)
     }
 
+    @Test fun executesArmStoreAndLoadMultipleWithIncrementAfterWriteback() {
+        val core = GbaEmulatorCore(
+            romOf(
+                0xE8A00006.toInt(), // STMIA r0!, {r1,r2}
+                0xE8B50018.toInt()  // LDMIA r5!, {r3,r4}
+            ),
+            initialRegisters = IntArray(16).also {
+                it[0] = 0x02000000
+                it[5] = 0x02000000
+                it[1] = 0x11223344
+                it[2] = 0x55667788
+            }
+        )
+
+        core.step()
+        val loaded = core.step()
+
+        assertEquals(0x11223344, loaded.registers[3])
+        assertEquals(0x55667788, loaded.registers[4])
+        assertEquals(0x02000008, loaded.registers[0])
+        assertEquals(0x02000008, loaded.registers[5])
+        assertFalse(loaded.halted)
+    }
+
     @Test fun executesArmMultiply() {
         val core = GbaEmulatorCore(
             romOf(0xE0020190.toInt()), // MUL r2, r0, r1
