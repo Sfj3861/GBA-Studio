@@ -19,6 +19,13 @@ class GbaPpuRendererTest {
         assertTrue(frame.warnings.isEmpty())
     }
 
+    @Test fun transparentBackgroundPixelsUseBackdropPaletteColor() {
+        val io=ByteArray(0x400);io[1]=1;io[9]=1
+        val palette=ByteArray(0x400);palette[0]=0xE0.toByte();palette[1]=0x03
+        val frame=GbaPpuRenderer.renderMode0(GbaVideoMemorySnapshot(io,palette,ByteArray(0x18000),ByteArray(0x400)))
+        assertEquals(0xFF00FF00.toInt(),frame.argbPixels[0])
+    }
+
     @Test fun reportsUnsupportedBitmapMode() {
         val io=ByteArray(0x400);io[0]=3
         val frame=GbaPpuRenderer.renderMode0(GbaVideoMemorySnapshot(io,ByteArray(0x400),ByteArray(0x18000),ByteArray(0x400)))
