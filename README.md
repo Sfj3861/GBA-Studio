@@ -14,7 +14,7 @@
 - C/C++ quick diagnostics for common structural mistakes. These are heuristics, not compiler diagnostics.
 - Experimental raw-section ROM image builder with named symbols, ABS32/REL32/ARM_BRANCH24/THUMB_BRANCH11 relocations, overlap/range/alignment checks, a GBA entry branch and validated header fields. An optional 156-byte logo block can be supplied by the user; no logo art is bundled.
 - Asset Studio image import (bounded to 4 megapixels), conversion to 8x8 4bpp tiles, transparent index 0, deterministic BGR555 palette reduction, tile deduplication, GBA screenblock maps, reconstructed map preview and one-click ZIP export with raw files plus generated C arrays/header.
-- Experimental ARM7TDMI instruction stepper with a small ARM/Thumb arithmetic/branch subset, N/Z/C/V flags, ARM condition evaluation and BX ARM/Thumb state changes; no memory bus or GBA peripherals.
+- Experimental ARM7TDMI instruction stepper with a small ARM/Thumb arithmetic/branch subset, N/Z/C/V flags, ARM condition evaluation, BX ARM/Thumb state changes and a partial ROM/EWRAM/IWRAM data bus with selected loads/stores; it is not a full GBA memory bus or peripheral implementation.
 - CMake/NDK native library and JNI bootstrap.
 - JVM tests for ROM headers, disassembly, diagnostics, raw ROM image generation, palette quantization and CPU-stepper behavior.
 
@@ -31,7 +31,7 @@ This is an evolving development build, not yet a complete GBA IDE.
 - **Emulator:** currently a CPU instruction stepper for a small subset of arithmetic, branches, MUL/MLA and selected loads/stores. Only ROM, EWRAM and IWRAM are mapped; IO registers, BIOS, full ARM7TDMI coverage, PPU/video, audio, DMA, timers, interrupts and cartridge peripherals are absent. It cannot yet run complete GBA games.
 - **ChatGPT:** API integration is not connected yet.
 
-The Android build is validated by GitHub Actions for each current branch head; physical-device testing remains required. No APK release is claimed by this repository state.
+GitHub Actions runs JVM unit tests and assembles a debug APK for branch pushes. Check the latest workflow run to confirm the status of the current head; physical-device testing remains required. No release APK is claimed by this repository state.
 
 ## Build requirements
 
