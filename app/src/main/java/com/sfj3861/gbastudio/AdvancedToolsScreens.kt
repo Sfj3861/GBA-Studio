@@ -256,6 +256,8 @@ fun LinkerScreen() {
 @Composable
 fun AssetStudioScreen() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var loading by remember { mutableStateOf(false) }
     var palette by remember { mutableStateOf<ByteArray?>(null) }
     var tiles by remember { mutableStateOf<ByteArray?>(null) }
     var mapTiles by remember { mutableStateOf<ByteArray?>(null) }
@@ -266,124 +268,167 @@ fun AssetStudioScreen() {
     var mapSummary by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var summary by remember { mutableStateOf("Importa una imagen PNG, JPG o WebP.") }
+
     DisposableEffect(preview) {
         onDispose { preview?.takeUnless { it.isRecycled }?.recycle() }
     }
+
+    fun clearAssets() {
+        palette = null
+        tiles = null
+        convertedAssets = null
+        mapTiles = null
+        tilemap = null
+        assetBundleZip = null
+        mapSummary = ""
+        preview = null
+    }
+
     fun rebuildMap(result: GbaPaletteResult, bank: Int) {
-        runCatching { GbaTileMapBuilder.build(result, paletteBank = bank) }
-            .onSuccess { built ->
-                mapTiles = built.uniqueTiles4bpp
-                tilemap = built.bytes
-                assetBundleZip = runCatching { GbaAssetBundleExporter.createZip(result, built) }.getOrNull()
-                val mapPixels = GbaTileMapPreviewRenderer.renderArgbPixels(built, result.colors)
-                preview = Bitmap.createBitmap(
-                    built.widthTiles * 8,
-                    built.heightTiles * 8,
-                    Bitmap.Config.ARGB_8888
-                ).apply {
-                    setPixels(mapPixels, 0, built.widthTiles * 8, 0, 0, built.widthTiles * 8, built.heightTiles * 8)
+        loading = true
+        scope.launch {
+            try {
+                val built = withContext(Dispatchers.Default) {
+                    val map = GbaTileMapBuilder.build(result, paletteBank = bank)
+                    val zip = GbaAssetBundleExporter.createZip(result, map)
+                    val pixels = GbaTileMapPreviewRenderer.renderArgbPixels(map, result.colors)
+                    val bitmap = Bitmap.createBitmap(
+                        map.widthTiles * 8,
+                        map.heightTiles * 8,
+                        Bitmap.Config.ARGB_8888
+                    ).apply {
+                        setPixels(pixels, 0, map.widthTiles * 8, 0, 0, map.widthTiles * 8, map.heightTiles * 8)
+                    }
+                    Triple(map, zip, bitmap)
                 }
-                mapSummary = "Vista previa del fondo: ${built.widthTiles * 8}×${built.heightTiles * 8} px · modo ${built.sizeCode} · banco ${built.paletteBank} · ${built.uniqueTileCount} tiles únicos"
-            }.onFailure {
+                mapTiles = built.first.uniqueTiles4bpp
+                tilemap = built.first.bytes
+                assetBundleZip = built.second
+                preview = built.third
+                mapSummary = "Vista previa del fondo: ${built.first.widthTiles * 8}×${built.first.heightTiles * 8} px · modo ${built.first.sizeCode} · banco ${built.first.paletteBank} · ${built.first.uniqueTileCount} tiles únicos"
+            } catch (error: Exception) {
                 mapTiles = null
                 tilemap = null
                 assetBundleZip = null
-                preview = runCatching { AssetStudio.renderPreview(result) }.getOrNull()
-                mapSummary = "Tilemap no generado: ${it.message}. Se muestra la imagen convertida sin mapa."
-            }
-    }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) runCatching {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            val boundsStream = context.contentResolver.openInputStream(uri)
-                ?: error("No se pudo leer la imagen.")
-            boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
-            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "El archivo no contiene una imagen válida." }
-            require(bounds.outWidth.toLong() * bounds.outHeight.toLong() <= AssetStudio.MAX_PIXELS) {
-                "La imagen supera el límite de ${AssetStudio.MAX_PIXELS / 1_000_000} megapíxeles."
-            }
-            context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-                ?: error("No se pudo decodificar la imagen.")
-        }.onSuccess { bitmap ->
-            try {
-                runCatching { AssetStudio.convertTo4Bpp(bitmap) }
-                    .onSuccess { result ->
-                        convertedAssets = result
-                        palette = AssetStudio.paletteBytes(result.colors)
-                        tiles = result.tiles4bpp
-                        rebuildMap(result, paletteBank)
-                        summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles de origen: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
-                    }.onFailure {
-                    summary = "Error: ${it.message}"
-                    palette = null
-                    tiles = null
-                    convertedAssets = null
-                    mapTiles = null
-                    tilemap = null
-                    assetBundleZip = null
-                    mapSummary = ""
-                    preview = null
-                }
+                val fallback = withContext(Dispatchers.Default) { AssetStudio.renderPreview(result) }
+                preview = fallback
+                mapSummary = "Tilemap no generado: ${error.message}. Se muestra la imagen convertida sin mapa."
             } finally {
-                bitmap.recycle()
+                loading = false
             }
-        }.onFailure {
-            summary = "Error al importar: ${it.message}"
-            palette = null
-            tiles = null
-            convertedAssets = null
-            mapTiles = null
-            tilemap = null
-            assetBundleZip = null
-            mapSummary = ""
-            preview = null
         }
     }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null && !loading) {
+            loading = true
+            scope.launch {
+                var decoded: Bitmap? = null
+                try {
+                    val bitmap = withContext(Dispatchers.IO) {
+                        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                        context.contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it, null, bounds)
+                        } ?: error("No se pudo leer la imagen.")
+                        require(bounds.outWidth > 0 && bounds.outHeight > 0) {
+                            "El archivo no contiene una imagen válida."
+                        }
+                        require(bounds.outWidth.toLong() * bounds.outHeight.toLong() <= AssetStudio.MAX_PIXELS) {
+                            "La imagen supera el límite de ${AssetStudio.MAX_PIXELS / 1_000_000} megapíxeles."
+                        }
+                        context.contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it)
+                        } ?: error("No se pudo decodificar la imagen.")
+                    }
+                    decoded = bitmap
+                    val result = withContext(Dispatchers.Default) { AssetStudio.convertTo4Bpp(bitmap) }
+                    val mapArtifacts = withContext(Dispatchers.Default) {
+                        runCatching {
+                            val map = GbaTileMapBuilder.build(result, paletteBank = paletteBank)
+                            val zip = GbaAssetBundleExporter.createZip(result, map)
+                            val pixels = GbaTileMapPreviewRenderer.renderArgbPixels(map, result.colors)
+                            val previewBitmap = Bitmap.createBitmap(
+                                map.widthTiles * 8, map.heightTiles * 8, Bitmap.Config.ARGB_8888
+                            ).apply {
+                                setPixels(pixels, 0, map.widthTiles * 8, 0, 0, map.widthTiles * 8, map.heightTiles * 8)
+                            }
+                            Triple(map, zip, previewBitmap)
+                        }
+                    }
+                    convertedAssets = result
+                    palette = AssetStudio.paletteBytes(result.colors)
+                    tiles = result.tiles4bpp
+                    if (mapArtifacts.isSuccess) {
+                        val (map, zip, bitmapPreview) = mapArtifacts.getOrThrow()
+                        mapTiles = map.uniqueTiles4bpp
+                        tilemap = map.bytes
+                        assetBundleZip = zip
+                        preview = bitmapPreview
+                        mapSummary = "Vista previa del fondo: ${map.widthTiles * 8}×${map.heightTiles * 8} px · modo ${map.sizeCode} · banco ${map.paletteBank} · ${map.uniqueTileCount} tiles únicos"
+                    } else {
+                        mapTiles = null
+                        tilemap = null
+                        assetBundleZip = null
+                        preview = withContext(Dispatchers.Default) { AssetStudio.renderPreview(result) }
+                        mapSummary = "Tilemap no generado: ${mapArtifacts.exceptionOrNull()?.message}. Se muestra la imagen convertida sin mapa."
+                    }
+                    summary = "Imagen: ${bitmap.width}×${bitmap.height}\nTiles de origen: ${result.tileCount}\nColores únicos de origen: ${result.sourceColorCount} · Entradas de paleta: ${result.colors.size}\nPaleta: ${result.colors.joinToString { "0x%04X".format(it) }}\n" + result.warnings.joinToString("\n")
+                } catch (error: Exception) {
+                    clearAssets()
+                    summary = "Error al importar: ${error.message}"
+                } finally {
+                    decoded?.takeUnless { it.isRecycled }?.recycle()
+                    loading = false
+                }
+            }
+        }
+    }
+
+    fun saveBytes(data: ByteArray?, uri: Uri?, description: String) {
+        if (uri == null || data == null) return
+        scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(data) }
+                        ?: error("No se pudo abrir el destino de exportación.")
+                }
+            } catch (error: Exception) {
+                summary = "Error al exportar $description: ${error.message}"
+            }
+        }
+    }
+
     val saveTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && tiles != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino de tiles.")
-            stream.use { it.write(tiles!!) }
-        }.onFailure { summary = "Error al exportar tiles: ${it.message}" }
+        saveBytes(tiles, uri, "tiles")
     }
     val savePalette = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && palette != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri) ?: error("No se pudo abrir el destino de la paleta.")
-            stream.use { it.write(palette!!) }
-        }.onFailure { summary = "Error al exportar paleta: ${it.message}" }
+        saveBytes(palette, uri, "paleta")
     }
     val saveMapTiles = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && mapTiles != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri)
-                ?: error("No se pudo abrir el destino de tiles deduplicados.")
-            stream.use { it.write(mapTiles!!) }
-        }.onFailure { summary = "Error al exportar tiles deduplicados: ${it.message}" }
+        saveBytes(mapTiles, uri, "tiles deduplicados")
     }
     val saveTilemap = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null && tilemap != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri)
-                ?: error("No se pudo abrir el destino del tilemap.")
-            stream.use { it.write(tilemap!!) }
-        }.onFailure { summary = "Error al exportar tilemap: ${it.message}" }
+        saveBytes(tilemap, uri, "tilemap")
     }
     val saveBundle = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null && assetBundleZip != null) runCatching {
-            val stream = context.contentResolver.openOutputStream(uri)
-                ?: error("No se pudo abrir el destino del paquete ZIP.")
-            stream.use { it.write(assetBundleZip!!) }
-        }.onFailure { summary = "Error al exportar paquete: ${it.message}" }
+        saveBytes(assetBundleZip, uri, "paquete ZIP")
     }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Asset Studio", style = MaterialTheme.typography.headlineMedium)
         Text("Convierte imágenes en tiles 4bpp de 8×8 y paletas BGR555 para gráficos GBA.")
-        Button(onClick = { imagePicker.launch("image/*") }) { Text("Importar imagen") }
-        Text(summary)
+        Button(enabled = !loading, onClick = { imagePicker.launch("image/*") }) {
+            Text(if (loading) "Procesando imagen…" else "Importar imagen")
+        }
+        Text(if (loading) "Decodificación, cuantización y generación de mapas en segundo plano…" else summary)
         Text("Banco de paleta de fondo: $paletteBank")
         Slider(
             value = paletteBank.toFloat(),
             onValueChange = { paletteBank = it.toInt() },
             onValueChangeFinished = { convertedAssets?.let { assets -> rebuildMap(assets, paletteBank) } },
             valueRange = 0f..15f,
-            steps = 14
+            steps = 14,
+            enabled = !loading && convertedAssets != null
         )
         if (mapSummary.isNotBlank()) Text(mapSummary, color = MaterialTheme.colorScheme.secondary)
         preview?.let { bitmap ->
@@ -397,15 +442,15 @@ fun AssetStudioScreen() {
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled = tiles != null, onClick = { saveTiles.launch("tiles-raw.4bpp") }) { Text("Tiles originales") }
-            OutlinedButton(enabled = palette != null, onClick = { savePalette.launch("palette.pal") }) { Text("Exportar paleta") }
+            OutlinedButton(enabled = !loading && tiles != null, onClick = { saveTiles.launch("tiles-raw.4bpp") }) { Text("Tiles originales") }
+            OutlinedButton(enabled = !loading && palette != null, onClick = { savePalette.launch("palette.pal") }) { Text("Exportar paleta") }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(enabled = mapTiles != null, onClick = { saveMapTiles.launch("tiles-unique.4bpp") }) { Text("Tiles para mapa") }
-            OutlinedButton(enabled = tilemap != null, onClick = { saveTilemap.launch("background.map") }) { Text("Exportar tilemap") }
+            OutlinedButton(enabled = !loading && mapTiles != null, onClick = { saveMapTiles.launch("tiles-unique.4bpp") }) { Text("Tiles para mapa") }
+            OutlinedButton(enabled = !loading && tilemap != null, onClick = { saveTilemap.launch("background.map") }) { Text("Exportar tilemap") }
         }
         OutlinedButton(
-            enabled = assetBundleZip != null,
+            enabled = !loading && assetBundleZip != null,
             onClick = { saveBundle.launch("gba-assets.zip") },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Exportar paquete completo ZIP") }
