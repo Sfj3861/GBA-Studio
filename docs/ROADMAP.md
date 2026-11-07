@@ -57,9 +57,10 @@
 
 ## Milestone 5 — Emulation and debugging
 - [x] Experimental ARM/Thumb stepper with condition flags, BX state switching, MUL/MLA, selected loads/stores, stack operations, Thumb multiple-register transfer and ARM LDM/STM
-- [x] Initial ROM/EWRAM/IWRAM data bus for the supported instruction subset
+- [x] Initial ROM/EWRAM/IWRAM/IO/palette/VRAM/OAM memory regions (register side effects and DMA are not modeled)
 - [ ] Full ARM7TDMI execution and complete GBA memory bus (current ROM/EWRAM/IWRAM implementation is partial)
-- [ ] GBA PPU/video rendering
+- [x] Software renderer for mode 0 text backgrounds BG0–BG3, scroll, screenblocks, 4bpp/8bpp tiles and palette transparency
+- [ ] OBJ/OAM rendering, bitmap modes, windows, blending and scanline timing
 - [ ] Timers, DMA, interrupts, keypad and memory-mapped peripherals
 - [ ] Audio engine
 - [ ] License-reviewed full GBA emulator core integration
