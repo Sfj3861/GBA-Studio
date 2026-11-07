@@ -393,8 +393,11 @@ class GbaEmulatorCore(
                 Integer.rotateRight(readMemory32(alignedAddress), (address and 3) * 8)
             }
         } else {
-            if (byteTransfer) writeMemory8(address, regs[rd])
-            else writeMemory32(address and -4, regs[rd])
+            // In ARM state, reading PC as the source of STR observes the
+            // instruction address plus 12 (the store pipeline value).
+            val sourceValue = if (rd == 15) pc + 12 else regs[rd]
+            if (byteTransfer) writeMemory8(address, sourceValue)
+            else writeMemory32(address and -4, sourceValue)
         }
         if (!preIndexed || writeBack) regs[rn] = adjusted
         if (rd != 15 || !load) regs[15] = pc + 4
