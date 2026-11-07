@@ -53,9 +53,9 @@ object GbaWavConverter {
     fun cSource(sample:GbaPcmSample,symbol:String="gba_audio"):String {
         require(symbol.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) && sample.samplesUnsigned8.isNotEmpty()) { "Nombre C o muestras no válidas." }
         return buildString {
-            append("#include <stdint.h>\n\nconst uint8_t \${symbol}_samples[\${sample.samplesUnsigned8.size}] = {\n")
-            sample.samplesUnsigned8.forEachIndexed{i,b->if(i%16==0)append("    ");append("0x%02X".format(b.toInt() and 255));append(if(i==sample.samplesUnsigned8.lastIndex)"\n" else ", ");if(i%16==15)append("\n")}
-            append("};\nconst uint32_t \${symbol}_sample_rate = \${sample.sampleRate}u;\nconst uint32_t \${symbol}_sample_count = \${sample.samplesUnsigned8.size}u;\n")
+            append("#include <stdint.h>\n\nconst int8_t ${symbol}_samples[${sample.samplesUnsigned8.size}] = {\n")
+            sample.samplesUnsigned8.forEachIndexed{i,b->if(i%16==0)append("    ");append(((b.toInt() and 255)-128).toString());append(if(i==sample.samplesUnsigned8.lastIndex)"\n" else ", ");if(i%16==15)append("\n")}
+            append("};\nconst uint32_t ${symbol}_sample_rate = ${sample.sampleRate}u;\nconst uint32_t ${symbol}_sample_count = ${sample.samplesUnsigned8.size}u;\n")
         }
     }
 
