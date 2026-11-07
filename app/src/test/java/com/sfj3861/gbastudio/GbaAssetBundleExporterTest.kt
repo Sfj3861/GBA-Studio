@@ -73,4 +73,17 @@ class GbaAssetBundleExporterTest {
         val map = GbaTileMapBuilder.build(assets).copy(uniqueTiles4bpp = ByteArray(31))
         GbaAssetBundleExporter.createZip(assets, map)
     }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsTilePixelsOutsideThePalette() {
+        val assets = GbaPaletteResult(
+            listOf(0, 1),
+            ByteArray(32) { 0x22 },
+            1,
+            emptyList(),
+            width = 8,
+            height = 8
+        )
+        GbaAssetBundleExporter.createZip(assets, GbaTileMapBuilder.build(assets))
+    }
 }
