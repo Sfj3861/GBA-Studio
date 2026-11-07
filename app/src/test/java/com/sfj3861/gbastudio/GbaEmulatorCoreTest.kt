@@ -32,6 +32,13 @@ class GbaEmulatorCoreTest {
         assertEquals(0xFF000000.toInt(), state.registers[0])
     }
 
+    @Test fun readsArmProgramCounterWithArchitecturalPipelineOffset() {
+        val core = GbaEmulatorCore(romOf(0xE1A0000F.toInt())) // MOV r0, PC
+        val state = core.step()
+        assertEquals(GbaEmulatorCoreTestBase.ROM_BASE + 8, state.registers[0])
+        assertEquals(GbaEmulatorCoreTestBase.ROM_BASE + 4, state.pc)
+    }
+
     @Test fun skipsArmInstructionWhenConditionFails() {
         val core = GbaEmulatorCore(romOf(
             0xE3B00000.toInt(), // MOVS r0, #0 (sets Z)
@@ -56,7 +63,7 @@ class GbaEmulatorCoreTest {
     }
 
     @Test fun unsupportedArmInstructionStopsStepperWithReason() {
-        val core = GbaEmulatorCore(romOf(0xEFFFFFFF.toInt()))
+        val core = GbaEmulatorCore(romOf(0xEF000000.toInt()))
         val state = core.step()
         assertTrue(state.halted)
         assertTrue(state.message.contains("no implementado"))
