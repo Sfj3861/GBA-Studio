@@ -168,7 +168,7 @@ class GbaEmulatorCoreTest {
     @Test fun storesArmProgramCounterWithStorePipelineOffset() {
         val core = GbaEmulatorCore(
             romOf(0xE580F000.toInt(), 0xE5901000.toInt()), // STR pc, [r0]; LDR r1, [r0]
-            initialRegisters = IntArray(16).also { it[0] = GbaEmulatorCoreTestBase.EWRAM_BASE }
+            initialRegisters = IntArray(16).also { it[0] = 0x02000000 }
         )
 
         core.step()
