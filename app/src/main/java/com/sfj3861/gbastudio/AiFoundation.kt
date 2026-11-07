@@ -61,7 +61,7 @@ object AiProjectContextBuilder {
 
     private fun redactSecrets(text:String):String =
         providerKey.replace(assignmentSecret.replace(text) { match ->
-            match.value.substringBefore(Regex("""[:=]""")).trimEnd()+"=[REDACTED]"
+            match.value.substringBefore(":").substringBefore("=").trimEnd()+"=[REDACTED]"
         }) { "[REDACTED_API_KEY]" }
 
     /** Only explicitly selected, ordinary source/document files are included. */
