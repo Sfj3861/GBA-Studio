@@ -16,7 +16,8 @@ object GbaPpuRenderer {
         val mode=dispcnt and 7
         if(mode!=0)return GbaRenderedFrame(SCREEN_WIDTH,SCREEN_HEIGHT,IntArray(SCREEN_WIDTH*SCREEN_HEIGHT),listOf("Modo de vídeo $mode no implementado; solo se renderiza modo 0."))
         if(dispcnt and (1 shl 7)!=0)return GbaRenderedFrame(SCREEN_WIDTH,SCREEN_HEIGHT,IntArray(SCREEN_WIDTH*SCREEN_HEIGHT){0xFFFFFFFF.toInt()},emptyList())
-        val pixels=IntArray(SCREEN_WIDTH*SCREEN_HEIGHT){0xFF000000.toInt()}
+        val backdrop=color555ToArgb(u16(memory.paletteRam,0))
+        val pixels=IntArray(SCREEN_WIDTH*SCREEN_HEIGHT){backdrop}
         val enabled=(0..3).filter{dispcnt and (1 shl (8+it))!=0}
         val backgrounds=enabled.map{index->
             val control=u16(memory.io,0x08+index*2)
@@ -25,7 +26,7 @@ object GbaPpuRenderer {
         backgrounds.forEach{(index,_)->drawTextBackground(memory,index,pixels)}
         val warnings=mutableListOf<String>()
         if(dispcnt and (1 shl 12)!=0)warnings+="Sprites OBJ habilitados, pero el renderizador OBJ aún no está implementado."
-        if(dispcnt and (1 shl 5)!=0)warnings+="Ventanas GBA todavía no implementadas."
+        if(dispcnt and ((1 shl 13) or (1 shl 14) or (1 shl 15))!=0)warnings+="Ventanas GBA todavía no implementadas."
         return GbaRenderedFrame(SCREEN_WIDTH,SCREEN_HEIGHT,pixels,warnings)
     }
 
@@ -66,12 +67,14 @@ object GbaPpuRenderer {
             val paletteOffset=colorIndex*2
             if(paletteOffset+1>=memory.paletteRam.size)continue
             val color=u16(memory.paletteRam,paletteOffset)
-            target[screenY*SCREEN_WIDTH+screenX]=0xFF000000.toInt() or
-                (expand5(color and 31) shl 16) or
-                (expand5((color ushr 5) and 31) shl 8) or
-                expand5((color ushr 10) and 31)
+            target[screenY*SCREEN_WIDTH+screenX]=color555ToArgb(color)
         }
     }
+
+    private fun color555ToArgb(color:Int)=0xFF000000.toInt() or
+        (expand5(color and 31) shl 16) or
+        (expand5((color ushr 5) and 31) shl 8) or
+        expand5((color ushr 10) and 31)
 
     private fun expand5(value:Int)=(value shl 3) or (value ushr 2)
     private fun u16(data:ByteArray,offset:Int)=(data[offset].toInt() and 255) or ((data[offset+1].toInt() and 255) shl 8)
