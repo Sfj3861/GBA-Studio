@@ -468,7 +468,11 @@ fun EmulatorScreen() {
     var breakpointAddress by remember { mutableStateOf("080000C0") }
     var memoryAddress by remember { mutableStateOf("02000000") }
     var memoryDump by remember { mutableStateOf("") }
+    var videoPreview by remember { mutableStateOf<Bitmap?>(null) }
     var snapshot by remember { mutableStateOf<EmulatorSnapshot?>(null) }
+    DisposableEffect(videoPreview) {
+        onDispose { videoPreview?.takeUnless { it.isRecycled }?.recycle() }
+    }
     var running by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Carga una ROM GBA para iniciar la prueba de CPU.") }
 
@@ -563,6 +567,30 @@ fun EmulatorScreen() {
             }) { Text("Leer 32 B") }
         }
         if (memoryDump.isNotBlank()) Text(memoryDump, fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+        OutlinedButton(enabled = core != null && !loading, onClick = {
+            val activeCore = core
+            if (activeCore != null) {
+                running = false
+                val videoState = activeCore.videoMemorySnapshot()
+                scope.launch {
+                    try {
+                        val frame = withContext(Dispatchers.Default) { GbaPpuRenderer.renderMode0(videoState) }
+                        val bitmap = Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888).apply {
+                            setPixels(frame.argbPixels, 0, frame.width, 0, 0, frame.width, frame.height)
+                        }
+                        videoPreview?.takeUnless { it.isRecycled }?.recycle()
+                        videoPreview = bitmap
+                        status = frame.warnings.joinToString(" ") .ifBlank { "Render modo 0 actualizado." }
+                    } catch (error: Exception) { status = "Error al renderizar: ${error.message}" }
+                }
+            }
+        }) { Text("Renderizar BG modo 0") }
+        videoPreview?.let { frame ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Image(frame.asImageBitmap(), contentDescription = "Vista previa PPU GBA 240 por 160",
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp).padding(12.dp), contentScale = ContentScale.Fit)
+            }
+        }
         OutlinedButton(
             enabled = romData != null && !loading,
             onClick = {
