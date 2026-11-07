@@ -43,8 +43,18 @@ object GbaSpriteStudio {
         require(x in 0..511 && y in 0..255 && tileIndex in 0..1023 && priority in 0..3 && paletteBank in 0..15) { "Atributos OAM fuera de rango." }
         val (shape,size)=when {
             width==height -> 0 to when(width){8->0;16->1;32->2;else->3}
-            width>height -> 1 to when(width to height){16 to 8->0;32 to 8->1;32 to 16->2;else->3}
-            else -> 2 to when(width to height){8 to 16->0;8 to 32->1;16 to 32->2;else->3}
+            width>height -> 1 to when {
+                width==16 -> 0
+                width==32 && height==8 -> 1
+                width==32 && height==16 -> 2
+                else -> 3
+            }
+            else -> 2 to when {
+                height==16 -> 0
+                height==32 && width==8 -> 1
+                height==32 && width==16 -> 2
+                else -> 3
+            }
         }
         val attr0=(y and 255) or (shape shl 14)
         val attr1=(x and 511) or (if(horizontalFlip) 1 shl 12 else 0) or (if(verticalFlip) 1 shl 13 else 0) or (size shl 14)
