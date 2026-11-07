@@ -8,7 +8,7 @@ class GbaSpriteStudioTest {
     @Test fun encodesObjShapeSizeAndPaletteFields() {
         val square=GbaSpriteStudio.oamAttributes(12,20,16,16,3,2,4)
         assertEquals(20,square.attr0 and 255)
-        assertEquals(1,square.attr0 ushr 14)
+        assertEquals(0,square.attr0 ushr 14)
         assertEquals(12,square.attr1 and 511)
         assertEquals(1,square.attr1 ushr 14)
         assertEquals(3,square.attr2 and 1023)
