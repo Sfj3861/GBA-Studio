@@ -53,7 +53,8 @@ class GbaAssetBundleExporterTest {
     @Test(expected = IllegalArgumentException::class)
     fun rejectsMapBytesThatDoNotMatchEntries() {
         val assets = GbaPaletteResult(listOf(0, 1), ByteArray(32), 1, emptyList(), width = 8, height = 8)
-        val map = GbaTileMapBuilder.build(assets).copy(bytes = ByteArray(2048))
+        val mismatchedBytes = GbaTileMapBuilder.build(assets).bytes.copyOf().also { it[0] = 1 }
+        val map = GbaTileMapBuilder.build(assets).copy(bytes = mismatchedBytes)
         GbaAssetBundleExporter.createZip(assets, map)
     }
 
