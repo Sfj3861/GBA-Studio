@@ -15,6 +15,11 @@
 - Experimental raw-section ROM image builder with named symbols, ABS32/REL32/ARM_BRANCH24/THUMB_BRANCH11 relocations, overlap/range/alignment checks, a GBA entry branch and validated header fields. An optional 156-byte logo block can be supplied by the user; no logo art is bundled.
 - Asset Studio image import (bounded to 4 megapixels), conversion to 8x8 4bpp tiles, transparent index 0, deterministic BGR555 palette reduction, tile deduplication, GBA screenblock maps, reconstructed map preview and one-click ZIP export with raw files plus generated C arrays/header.
 - Experimental ARM7TDMI instruction stepper with a small ARM/Thumb arithmetic/branch subset, N/Z/C/V flags, ARM condition evaluation, BX ARM/Thumb state changes and a partial ROM/EWRAM/IWRAM data bus with selected loads/stores; it is not a full GBA memory bus or peripheral implementation.
+- Sprite Studio slices sprite sheets into legal GBA OBJ dimensions, shares a 4bpp palette, generates OAM attributes and exports frame data/durations as C arrays. Frames reuse one VRAM slot; a visual OAM canvas and playback preview remain future work.
+- Audio Studio imports bounded RIFF/WAVE PCM (mono/stereo, 8/16-bit), downmixes and resamples to mono unsigned 8-bit samples, and exports C arrays or normalized WAV. ADPCM, looping and emulator playback are not implemented.
+- Porting analyzer scans project C/C++ sources for common desktop-only APIs and portability risks; findings are heuristic and do not certify compatibility.
+- Debugger controller adds PC breakpoints, bounded execution traces and mapped-memory hex reads around the experimental CPU stepper.
+- ChatGPT foundation includes Android Keystore AES-GCM encrypted local API-key storage, explicit allow-list project-context construction with size limits and credential-file exclusions, and an approval gate for proposed file changes. No network/API requests are implemented yet.
 - CMake/NDK native library and JNI bootstrap.
 - JVM tests for ROM headers, disassembly, diagnostics, raw ROM image generation, palette quantization and CPU-stepper behavior.
 
@@ -29,7 +34,7 @@ This is an evolving development build, not yet a complete GBA IDE.
 - **Diagnostics:** fast heuristic checks only; use a real compiler for authoritative errors.
 - **Asset Studio:** converts raster images to tiled 4bpp and BGR555 palette data. When an image exceeds 15 opaque colors, a deterministic frequency-based palette reduction maps excess colors to the nearest selected color. It can deduplicate tiles, build hardware-ordered screenblock maps, preview the reconstructed map, and export a ZIP with typed `asset.c` / `asset.h` arrays. Sprite/OAM editing, animation, audio, dithering and advanced palette optimization remain future work.
 - **Emulator:** currently a CPU instruction stepper for a small subset of arithmetic, branches, MUL/MLA and selected loads/stores. Only ROM, EWRAM and IWRAM are mapped; IO registers, BIOS, full ARM7TDMI coverage, PPU/video, audio, DMA, timers, interrupts and cartridge peripherals are absent. It cannot yet run complete GBA games.
-- **ChatGPT:** API integration is not connected yet.
+- **ChatGPT:** only secure local configuration/context/change-review foundations exist. There is no OpenAI API client, network transport, chat UI, token streaming, rate-limit handling or provider request yet.
 
 GitHub Actions runs JVM unit tests and assembles a debug APK for branch pushes. Check the latest workflow run to confirm the status of the current head; physical-device testing remains required. No release APK is claimed by this repository state.
 
