@@ -58,6 +58,7 @@ object GbaAssetBundleExporter {
         require(assets.colors.all { it in 0..0x7FFF }) {
             "La paleta contiene un color fuera del formato BGR555."
         }
+        validate4BppIndices(assets.tiles4bpp, assets.colors.size, "Los tiles de origen")
         require(map.widthTiles in 32..64 && map.heightTiles in 32..64 &&
             map.widthTiles % 32 == 0 && map.heightTiles % 32 == 0) {
             "Las dimensiones del mapa no coinciden con screenblocks GBA."
@@ -67,20 +68,21 @@ object GbaAssetBundleExporter {
             map.uniqueTiles4bpp.size == map.uniqueTileCount * 32) {
             "Los datos únicos no coinciden con el recuento de tiles."
         }
+        validate4BppIndices(map.uniqueTiles4bpp, assets.colors.size, "Los tiles únicos")
         require(map.entries.size == map.widthTiles * map.heightTiles &&
             map.bytes.size == map.entries.size * 2) {
             "El tamaño de la tabla de mapa no coincide con sus dimensiones."
         }
         map.entries.forEachIndexed { index, entry ->
             require((entry and 0x03FF) < map.uniqueTileCount) {
-                "La entrada §index referencia un tile inexistente."
+                "La entrada $index referencia un tile inexistente."
             }
             require(((entry ushr 12) and 15) == map.paletteBank) {
-                "La entrada §index usa otro banco de paleta."
+                "La entrada $index usa otro banco de paleta."
             }
             val encoded = (map.bytes[index * 2].toInt() and 255) or
                 ((map.bytes[index * 2 + 1].toInt() and 255) shl 8)
-            require(encoded == entry) { "Los bytes del mapa no coinciden con la entrada §index." }
+            require(encoded == entry) { "Los bytes del mapa no coinciden con la entrada $index." }
         }
         val expectedWidth = if (assets.width / 8 <= 32) 32 else 64
         val expectedHeight = if (assets.height / 8 <= 32) 32 else 64
@@ -94,6 +96,17 @@ object GbaAssetBundleExporter {
             else -> 3
         }
         require(map.sizeCode == expectedSizeCode) { "El código de tamaño no coincide con el mapa." }
+    }
+
+    private fun validate4BppIndices(data: ByteArray, paletteSize: Int, label: String) {
+        data.forEachIndexed { byteIndex, packed ->
+            val value = packed.toInt() and 255
+            val low = value and 15
+            val high = value ushr 4
+            require(low < paletteSize && high < paletteSize) {
+                "$label contienen un índice de paleta fuera de rango en el byte $byteIndex."
+            }
+        }
     }
 
     private fun header(assets: GbaPaletteResult, map: GbaTileMapResult): String = """
