@@ -5,7 +5,8 @@
 - [x] Responsive compact/tablet navigation
 - [x] Introductory tutorial
 - [x] Native C++/JNI bootstrap
-- [ ] Green CI build and physical-device verification
+- [x] Green CI build and debug APK artifact generation
+- [ ] Physical-device verification
 
 ## Milestone 1 — Project workspace
 - [x] Project creation, open, rename and delete
@@ -32,7 +33,7 @@
 - [x] ROM header parser, complement checksum and fixed-byte validation
 - [x] Entry branch decoding and logo-data presence reporting (not BIOS-logo verification)
 - [x] Read-only paged hexadecimal viewer
-- [x] Initial ARM/Thumb disassembler for a limited instruction subset, including immediate transfers and ARM rotated immediates
+- [x] Initial ARM/Thumb disassembler for a limited instruction subset, including immediate transfers, ARM rotated immediates and ARM LDM/STM addressing modes
 - [ ] Complete ARM7TDMI ARM/Thumb decoding coverage
 - [ ] Symbols, cross-references and function analysis
 - [ ] Export analysis reports
@@ -51,7 +52,7 @@
 - [ ] Source project compatibility report and porting helpers
 
 ## Milestone 5 — Emulation and debugging
-- [x] Experimental ARM/Thumb stepper with condition flags, BX state switching, MUL/MLA, selected loads/stores, stack operations and multiple-register transfer
+- [x] Experimental ARM/Thumb stepper with condition flags, BX state switching, MUL/MLA, selected loads/stores, stack operations, Thumb multiple-register transfer and ARM LDM/STM
 - [x] Initial ROM/EWRAM/IWRAM data bus for the supported instruction subset
 - [ ] Full ARM7TDMI execution and complete GBA memory bus (current ROM/EWRAM/IWRAM implementation is partial)
 - [ ] GBA PPU/video rendering
