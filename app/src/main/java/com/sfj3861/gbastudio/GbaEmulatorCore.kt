@@ -12,9 +12,9 @@ data class EmulatorSnapshot(
 
 /**
  * Experimental ARM7TDMI instruction stepper.
- * It supports a limited arithmetic/branch/load-store subset and maps ROM, EWRAM and IWRAM.
- * It is not a complete ARM7TDMI core or GBA memory bus: BIOS, IO, PPU, audio, DMA,
- * timers, interrupts, cartridge peripherals and many instruction classes are absent.
+ * It supports a limited ARM/Thumb subset and partial ROM, RAM, IO, palette, VRAM and OAM storage.
+ * IO side effects, full ARM7TDMI coverage, BIOS, DMA, timers, interrupts, audio, OBJ rendering
+ * and cartridge peripherals are not implemented; this is not a complete GBA emulator.
  */
 class GbaEmulatorCore(
     rom: ByteArray,
