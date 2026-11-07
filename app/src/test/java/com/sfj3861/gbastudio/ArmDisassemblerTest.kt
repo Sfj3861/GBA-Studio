@@ -91,6 +91,16 @@ class ArmDisassemblerTest {
         assertEquals("r0, r1, #2", subtract.operands)
     }
 
+    @Test fun decodesArmBlockTransfersAndAddressingModes() {
+        val store = ArmDisassembler.decodeArm(0xE8A00006.toInt(), 0x08000000)
+        val load = ArmDisassembler.decodeArm(0xE9358018.toInt(), 0x08000000)
+
+        assertEquals("STMIA", store.mnemonic)
+        assertEquals("r0!, {r1, r2}", store.operands)
+        assertEquals("LDMDB", load.mnemonic)
+        assertEquals("r5!, {r3, r4, PC}", load.operands)
+    }
+
     @Test fun decodesArmImmediateOffsetLoad() {
         val decoded = ArmDisassembler.decodeArm(0xE5910004.toInt(), 0x08000000)
         assertEquals("LDR", decoded.mnemonic)
