@@ -79,7 +79,8 @@ object GbaTileMapBuilder {
             mapWidth == 32 && mapHeight == 64 -> 2
             else -> 3
         }
-        val entries = IntArray(mapWidth * mapHeight)
+        // Empty map cells still carry the selected palette bank (tile index zero).
+        val entries = IntArray(mapWidth * mapHeight) { paletteBank shl 12 }
         val blockColumns = mapWidth / SCREENBLOCK_SIDE
 
         for (y in 0 until sourceHeight) {
