@@ -51,10 +51,13 @@ class GbaEmulatorCore(
         setFlag(T_FLAG, startInThumb)
     }
 
+    @Synchronized
     fun snapshot() = EmulatorSnapshot(regs[15], regs.copyOf(), thumb, steps, halted, message, cpsr)
 
+    @Synchronized
     fun videoMemorySnapshot() = GbaVideoMemorySnapshot(io.copyOf(), paletteRam.copyOf(), vram.copyOf(), oam.copyOf())
 
+    @Synchronized
     fun step(): EmulatorSnapshot {
         if (halted) return snapshot()
         val pc = regs[15]
@@ -518,16 +521,19 @@ class GbaEmulatorCore(
         }
     }
 
+    @Synchronized
     fun readMemory8(address: Int): Int {
         val (region, offset) = mapMemory(address, 1)
         return region[offset].toInt() and 255
     }
 
+    @Synchronized
     fun readMemory16(address: Int): Int {
         val (region, offset) = mapMemory(address, 2)
         return (region[offset].toInt() and 255) or ((region[offset + 1].toInt() and 255) shl 8)
     }
 
+    @Synchronized
     fun readMemory32(address: Int): Int {
         val (region, offset) = mapMemory(address, 4)
         return (region[offset].toInt() and 255) or
@@ -536,12 +542,14 @@ class GbaEmulatorCore(
             ((region[offset + 3].toInt() and 255) shl 24)
     }
 
+    @Synchronized
     fun writeMemory8(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 1)
         require(region !== memory) { "La región ROM es de solo lectura." }
         region[offset] = value.toByte()
     }
 
+    @Synchronized
     fun writeMemory16(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 2)
         require(region !== memory) { "La región ROM es de solo lectura." }
@@ -549,6 +557,7 @@ class GbaEmulatorCore(
         region[offset + 1] = (value ushr 8).toByte()
     }
 
+    @Synchronized
     fun writeMemory32(address: Int, value: Int) {
         val (region, offset) = mapMemory(address, 4)
         require(region !== memory) { "La región ROM es de solo lectura." }
