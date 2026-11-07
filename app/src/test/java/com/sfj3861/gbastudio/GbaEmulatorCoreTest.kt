@@ -109,7 +109,7 @@ class GbaEmulatorCoreTest {
 
     @Test fun storesAndLoadsThumbWordThroughIwram() {
         val rom = ByteArray(0xC0)
-        rom[0] = 0x41
+        rom[0] = 0x01
         rom[1] = 0x60.toByte() // STR r1, [r0]
         rom[2] = 0x02
         rom[3] = 0x68 // LDR r2, [r0]
