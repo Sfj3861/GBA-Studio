@@ -9,7 +9,7 @@ object GbaPpuRenderer {
     const val SCREEN_HEIGHT=160
 
     fun renderMode0(memory:GbaVideoMemorySnapshot):GbaRenderedFrame {
-        require(memory.io.size>=0x10 && memory.paletteRam.size>=0x200 && memory.vram.size>=0x18000) {
+        require(memory.io.size>=0x20 && memory.paletteRam.size>=0x200 && memory.vram.size>=0x18000) {
             "Snapshot de memoria de vídeo incompleto."
         }
         val dispcnt=u16(memory.io,0)
