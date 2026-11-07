@@ -165,6 +165,19 @@ class GbaEmulatorCoreTest {
         assertFalse(state.halted)
     }
 
+    @Test fun storesArmProgramCounterWithStorePipelineOffset() {
+        val core = GbaEmulatorCore(
+            romOf(0xE580F000.toInt(), 0xE5901000.toInt()), // STR pc, [r0]; LDR r1, [r0]
+            initialRegisters = IntArray(16).also { it[0] = GbaEmulatorCoreTestBase.EWRAM_BASE }
+        )
+
+        core.step()
+        val state = core.step()
+
+        assertEquals(GbaEmulatorCoreTestBase.ROM_BASE + 12, state.registers[1])
+        assertFalse(state.halted)
+    }
+
     @Test fun refusesWritesToRom() {
         val core = GbaEmulatorCore(
             romOf(0xE5801000.toInt()), // STR r1, [r0]
