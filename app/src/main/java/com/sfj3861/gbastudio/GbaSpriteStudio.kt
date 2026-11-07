@@ -31,10 +31,10 @@ object GbaSpriteStudio {
             }
             val index=frames.size
             frames+=GbaSpriteFrame(index,bytes,tilesWide*tilesHigh,durationMs,
-                oamAttributes(x,y,frameWidth,frameHeight,index*tilesWide*tilesHigh,priority,paletteBank))
+                oamAttributes(x,y,frameWidth,frameHeight,0,priority,paletteBank))
         }
         val warnings=converted.warnings.toMutableList()
-        if(frames.sumOf{it.tileCount}>1024) warnings+="La hoja supera 1024 tiles OBJ; carga los frames en bancos separados."
+        if(frames.size>1) warnings+="Los frames comparten la misma región OBJ; actualiza sus tiles en VRAM al cambiar de frame."
         return GbaSpriteSheetResult(frameWidth,frameHeight,converted.colors,frames,warnings)
     }
 
