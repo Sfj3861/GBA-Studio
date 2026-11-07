@@ -26,7 +26,7 @@ fun AiSettingsScreen(){
         Text("ChatGPT · Configuración segura",style=MaterialTheme.typography.headlineMedium)
         Text("Base local de integración. No se realiza ninguna petición de red todavía y la APK no contiene una clave predeterminada.")
         OutlinedTextField(value=key,onValueChange={key=it},label={Text("OpenAI API key")},visualTransformation=PasswordVisualTransformation(),singleLine=true)
-        Button(enabled=key.isNotBlank(),onClick={status=runCatching{store.saveApiKey(key);key="";configured=true;"Clave guardada cifrada en Android Keystore."}.getOrElse{"No se pudo guardar: \${it.message}"}}){Text("Guardar clave cifrada")}
+        Button(enabled=key.isNotBlank(),onClick={status=runCatching{store.saveApiKey(key);key="";configured=true;"Clave guardada cifrada en Android Keystore."}.getOrElse{"No se pudo guardar: ${it.message}"}}){Text("Guardar clave cifrada")}
         OutlinedButton(enabled=configured,onClick={store.clearApiKey();configured=false;key="";status="Clave local eliminada."}){Text("Eliminar clave")}
         Text(if(configured)"Hay una clave cifrada guardada (no se muestra)." else "No hay clave configurada.",color=MaterialTheme.colorScheme.secondary)
         Text(status)
