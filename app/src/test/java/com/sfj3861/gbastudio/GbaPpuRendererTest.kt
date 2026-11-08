@@ -29,6 +29,6 @@ class GbaPpuRendererTest {
     @Test fun reportsUnsupportedBitmapMode() {
         val io=ByteArray(0x400);io[0]=3
         val frame=GbaPpuRenderer.renderMode0(GbaVideoMemorySnapshot(io,ByteArray(0x400),ByteArray(0x18000),ByteArray(0x400)))
-        assertTrue(frame.warnings.single().lowercase().contains("modo 3"))
+        assertTrue(frame.warnings.single().lowercase().contains("modo de vídeo 3"))
     }
 }

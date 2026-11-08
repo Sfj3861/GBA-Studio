@@ -26,8 +26,15 @@ fun AiSettingsScreen(){
         Text("ChatGPT · Configuración segura",style=MaterialTheme.typography.headlineMedium)
         Text("Base local de integración. No se realiza ninguna petición de red todavía y la APK no contiene una clave predeterminada.")
         OutlinedTextField(value=key,onValueChange={key=it},label={Text("OpenAI API key")},visualTransformation=PasswordVisualTransformation(),singleLine=true)
-        Button(enabled=key.isNotBlank(),onClick={status=runCatching{store.saveApiKey(key);key="";configured=true;"Clave guardada cifrada en Android Keystore."}.getOrElse{"No se pudo guardar: ${it.message}"}}){Text("Guardar clave cifrada")}
-        OutlinedButton(enabled=configured,onClick={store.clearApiKey();configured=false;key="";status="Clave local eliminada."}){Text("Eliminar clave")}
+        Button(enabled=key.isNotBlank(),onClick={status=runCatching{store.saveApiKey(key);key="";configured=true;"Clave guardada cifrada en Android Keystore."}.getOrElse{"No se pudo guardar: "+it.message}}){Text("Guardar clave cifrada")}
+        OutlinedButton(enabled=configured,onClick={
+            status=runCatching {
+                store.clearApiKey()
+                configured=false
+                key=""
+                "Clave local eliminada."
+            }.getOrElse { "No se pudo eliminar: "+it.message }
+        }){Text("Eliminar clave")}
         Text(if(configured)"Hay una clave cifrada guardada (no se muestra)." else "No hay clave configurada.",color=MaterialTheme.colorScheme.secondary)
         Text(status)
         Text("Privacidad: ningún archivo se comparte automáticamente. La futura integración deberá pedir permiso por proyecto y archivo, limitar el contexto y mostrar cada diff antes de aplicar cambios.")

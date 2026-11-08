@@ -4,6 +4,9 @@ data class PortingFinding(val severity:String,val file:String,val message:String
 data class PortingReport(val filesScanned:Int,val sourceBytes:Long,val findings:List<PortingFinding>)
 
 object GbaPortingAnalyzer {
+    private const val MAX_FILE_BYTES=512*1024
+    private const val MAX_TOTAL_BYTES=8L*1024*1024
+    private const val MAX_FILES=1000
     private val sourceExtensions=setOf("c","h","cc","cpp","hpp")
     fun analyzeSource(path:String,source:String):List<PortingFinding> {
         val out=mutableListOf<PortingFinding>()
@@ -21,16 +24,23 @@ object GbaPortingAnalyzer {
     }
 
     fun analyze(project:GbaProject):PortingReport {
-        val files=project.directory.walkTopDown().filter{it.isFile && it.extension.lowercase() in sourceExtensions}
-            .filter{it.length()<=512*1024}.take(1000).toList()
-        val findings=mutableListOf<PortingFinding>();var bytes=0L
-        files.forEach{file->
-            val size=file.length();bytes+=size
-            if(bytes>8L*1024*1024)return@forEach
+        val candidates=project.directory.walkTopDown()
+            .filter{it.isFile && it.extension.lowercase() in sourceExtensions && it.length()<=MAX_FILE_BYTES}
+            .take(MAX_FILES).toList()
+        val findings=mutableListOf<PortingFinding>()
+        var bytes=0L
+        var scanned=0
+        for(file in candidates) {
+            val sourceBytes=runCatching {
+                file.inputStream().use { it.readBoundedBytes(MAX_FILE_BYTES) }
+            }.getOrNull() ?: continue
+            if(sourceBytes.size.toLong()>MAX_TOTAL_BYTES-bytes)break
+            val source=String(sourceBytes,Charsets.UTF_8)
+            bytes+=sourceBytes.size
+            scanned++
             val relative=file.relativeTo(project.directory).invariantSeparatorsPath
-            val source=runCatching{file.readText(Charsets.UTF_8)}.getOrNull()?:return@forEach
             findings+=analyzeSource(relative,source)
         }
-        return PortingReport(files.size,bytes,findings)
+        return PortingReport(scanned,bytes,findings)
     }
 }

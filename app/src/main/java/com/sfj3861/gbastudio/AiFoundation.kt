@@ -56,13 +56,14 @@ object AiProjectContextBuilder {
     const val MAX_FILE_CHARS=64_000
     const val MAX_TOTAL_CHARS=256_000
     private val forbiddenNames=setOf(
-        "secrets.json","credentials.json","google-services.json","keystore.properties",
+        "secrets","secret","secrets.json","secrets.yaml","secrets.yml","credentials","credentials.json",
+        "credentials.yaml","credentials.yml","google-services.json","keystore.properties",
         "service-account.json","service_account.json","token.json","id_rsa","id_ed25519",
-        ".npmrc",".netrc",".pypirc"
+        ".npmrc",".netrc",".pypirc",".envrc",".dockerconfigjson"
     )
-    private val forbiddenDirectories=setOf("secrets","credentials","private-keys","private_keys")
-    private val forbiddenSuffixes=listOf(".keystore",".jks",".pem",".p12",".pfx",".key",".p8",".der",".crt",".cer",".asc",".gpg")
-    private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret))(\s*["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)""")
+    private val forbiddenDirectories=setOf("secrets","credentials","private-keys","private_keys",".aws",".azure",".ssh",".gnupg")
+    private val forbiddenSuffixes=listOf(".keystore",".jks",".pem",".p12",".pfx",".key",".p8",".der",".crt",".cer",".asc",".gpg",".secret",".credentials")
+    private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|token|password|secret|private[_-]?key|authorization))(\s*["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)""")
     private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
 
     internal fun isCredentialPath(path:String):Boolean {
@@ -70,7 +71,10 @@ object AiProjectContextBuilder {
         val names=segments.map{it.lowercase()}
         return names.any { name ->
             name in forbiddenNames || name==".env" || name.startsWith(".env.") ||
-                name.contains(".env.") || name.endsWith(".env") || forbiddenSuffixes.any(name::endsWith)
+                name.contains(".env.") || name.endsWith(".env") ||
+                name.startsWith("secret.") || name.startsWith("secrets.") ||
+                name.startsWith("credential.") || name.startsWith("credentials.") ||
+                forbiddenSuffixes.any(name::endsWith)
         } || names.dropLast(1).any { it in forbiddenDirectories }
     }
 
