@@ -63,8 +63,8 @@ object AiProjectContextBuilder {
     )
     private val forbiddenDirectories=setOf("secrets","credentials","private-keys","private_keys",".aws",".azure",".ssh",".gnupg")
     private val forbiddenSuffixes=listOf(".keystore",".jks",".pem",".p12",".pfx",".key",".p8",".der",".crt",".cer",".asc",".gpg",".secret",".credentials")
-    private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?key(?:[_-]?id)?|token|password|secret|private[_-]?key|authorization))(\\s*["']?\\s*[:=]\\s*)(?:(?:Bearer|Basic)\\s+)?(?:"[^"]*"|'[^']*'|[^\\s,;}\\]]+)""")
-    private val providerKey=Regex("""\\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\\b""")
+    private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?key(?:[_-]?id)?|token|password|secret|private[_-]?key|authorization))(\s*["']?\s*[:=]\s*)(?:(?:Bearer|Basic)\s+)?(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)""")
+    private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
 
     internal fun isCredentialPath(path:String):Boolean {
         val segments=path.replace('\\\\','/').split('/')
@@ -80,7 +80,7 @@ object AiProjectContextBuilder {
 
     private fun redactSecrets(text:String):String =
         providerKey.replace(assignmentSecret.replace(text) { match ->
-            match.groupValues[1]+match.groupValues[2]+"\\"[REDACTED]\\"
+            match.groupValues[1]+match.groupValues[2]+"\"[REDACTED]\""
         }) { "[REDACTED_API_KEY]" }
 
     internal fun sanitizeForSharing(text:String)=redactSecrets(text)
