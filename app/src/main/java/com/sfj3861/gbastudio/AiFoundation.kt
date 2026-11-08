@@ -62,8 +62,8 @@ object AiProjectContextBuilder {
     )
     private val forbiddenDirectories=setOf("secrets","credentials","private-keys","private_keys")
     private val forbiddenSuffixes=listOf(".keystore",".jks",".pem",".p12",".pfx",".key",".p8",".der",".crt",".cer",".asc",".gpg")
-    private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret))(s*["']?s*[:=]s*)(?:"[^"]*"|'[^']*'|[^s,;}]]+)""")
-    private val providerKey=Regex("""sk-(?:proj-)?[A-Za-z0-9_-]{20,}""")
+    private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret))(\s*["']?\s*[:=]\s*)(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)""")
+    private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
 
     internal fun isCredentialPath(path:String):Boolean {
         val segments=path.replace('\\','/').split('/')
