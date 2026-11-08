@@ -37,7 +37,7 @@ class AiSettingsStore(context:Context) {
     }
 
     fun hasApiKey()=prefs.contains("openai_key")
-    fun clearApiKey(){prefs.edit().remove("openai_key").commit()}
+    fun clearApiKey(){check(prefs.edit().remove("openai_key").commit()) { "No se pudo borrar la API key guardada." }}
 
     private fun key():SecretKey {
         val store=KeyStore.getInstance("AndroidKeyStore").apply{load(null)}
@@ -55,13 +55,28 @@ data class AiProjectContext(val projectId:String,val includedFiles:Map<String,St
 object AiProjectContextBuilder {
     const val MAX_FILE_CHARS=64_000
     const val MAX_TOTAL_CHARS=256_000
-    private val forbidden=setOf(".env",".env.local","secrets.json","credentials.json","google-services.json","keystore.properties","id_rsa","id_ed25519")
-    private val assignmentSecret=Regex("""(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]\s*["']?[^\s"'\r\n]+""")
-    private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
+    private val forbiddenNames=setOf(
+        "secrets.json","credentials.json","google-services.json","keystore.properties",
+        "service-account.json","service_account.json","token.json","id_rsa","id_ed25519",
+        ".npmrc",".netrc",".pypirc"
+    )
+    private val forbiddenDirectories=setOf("secrets","credentials","private-keys","private_keys")
+    private val forbiddenSuffixes=listOf(".keystore",".jks",".pem",".p12",".pfx",".key",".p8",".der",".crt",".cer",".asc",".gpg")
+    private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret))(s*["']?s*[:=]s*)(?:"[^"]*"|'[^']*'|[^s,;}]]+)""")
+    private val providerKey=Regex("""sk-(?:proj-)?[A-Za-z0-9_-]{20,}""")
+
+    internal fun isCredentialPath(path:String):Boolean {
+        val segments=path.replace('\\','/').split('/')
+        val names=segments.map{it.lowercase()}
+        return names.any { name ->
+            name in forbiddenNames || name==".env" || name.startsWith(".env.") ||
+                name.contains(".env.") || name.endsWith(".env") || forbiddenSuffixes.any(name::endsWith)
+        } || names.dropLast(1).any { it in forbiddenDirectories }
+    }
 
     private fun redactSecrets(text:String):String =
         providerKey.replace(assignmentSecret.replace(text) { match ->
-            match.value.substringBefore(":").substringBefore("=").trimEnd()+"=[REDACTED]"
+            match.groupValues[1]+match.groupValues[2]+"\"[REDACTED]\""
         }) { "[REDACTED_API_KEY]" }
 
     internal fun sanitizeForSharing(text:String)=redactSecrets(text)
@@ -72,10 +87,7 @@ object AiProjectContextBuilder {
         val included=linkedMapOf<String,String>()
         var total=0
         selectedPaths.distinct().forEach { path ->
-            val leaf=path.substringAfterLast('/').lowercase()
-            require(leaf !in forbidden && listOf(".keystore",".jks",".pem",".p12",".pfx",".key").none { leaf.endsWith(it) }) {
-                "El archivo $path está excluido por seguridad."
-            }
+            require(!isCredentialPath(path)) { "El archivo $path está excluido por seguridad." }
             val raw=repository.readText(project,path)
             require(raw.length<=MAX_FILE_CHARS) { "El archivo $path supera el límite de contexto." }
             val content=redactSecrets(raw)
