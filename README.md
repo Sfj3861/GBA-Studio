@@ -22,7 +22,7 @@
 - Debugger controller adds PC breakpoints, bounded execution traces and mapped-memory hex reads around the experimental CPU stepper.
 - ChatGPT foundation includes Android Keystore AES-GCM encrypted local API-key storage, explicit allow-list project-context construction with size limits and credential-file exclusions, and an approval gate for proposed file changes. No network/API requests are implemented yet.
 - CMake/NDK native library and JNI bootstrap.
-- JVM tests for ROM headers, disassembly, diagnostics, raw ROM image generation, palette quantization and CPU-stepper behavior.
+- JVM tests cover ROM headers, disassembly, diagnostics, raw ROM image generation, palette quantization, CPU/memory stepping, debugger breakpoints/traces, mode-0 rendering, sprite OAM, PCM conversion, portability heuristics and AI credential filtering/redaction.
 
 ## Important limitations
 
@@ -31,9 +31,9 @@ This is an evolving development build, not yet a complete GBA IDE.
 - **Compiler:** a bare-metal ARM7TDMI C/C++ toolchain is not integrated yet.
 - **Linker:** the in-app builder links raw sections, resolves explicitly supplied symbols and applies four relocation types. It does not parse ELF object files, support the complete ARM relocation ABI or provide a complete compiler toolchain. The GNU ld memory-map script is an initial integration artifact.
 - **ROM bootability:** the image builder writes the entry branch and standard metadata/checksum fields and accepts a caller-supplied 156-byte logo block. It does not verify that logo against the BIOS reference, nor generate startup/runtime code or initialize RAM sections. Its output is not guaranteed to boot on hardware or in an emulator.
-- **Disassembler:** decoding coverage is partial; unknown instructions remain \`.word\` / \`.hword\`.
+- **Disassembler:** decoding coverage is partial; unknown instructions remain `.word` / `.hword`.
 - **Diagnostics:** fast heuristic checks only; use a real compiler for authoritative errors.
-- **Asset Studio:** converts raster images to tiled 4bpp and BGR555 palette data. When an image exceeds 15 opaque colors, a deterministic frequency-based palette reduction maps excess colors to the nearest selected color. It can deduplicate tiles, build hardware-ordered screenblock maps, preview the reconstructed map, and export a ZIP with typed \`asset.c\` / \`asset.h\` arrays. Interactive tilemap editing, visual OAM placement and playback preview, ADPCM, looping, emulator audio, dithering and advanced palette optimization remain future work.
+- **Asset Studio:** converts raster images to tiled 4bpp and BGR555 palette data. When an image exceeds 15 opaque colors, a deterministic frequency-based palette reduction maps excess colors to the nearest selected color. It can deduplicate tiles, build hardware-ordered screenblock maps, preview the reconstructed map, and export a ZIP with typed `asset.c` / `asset.h` arrays. Interactive tilemap editing, visual OAM placement and playback preview, ADPCM, looping, emulator audio, dithering and advanced palette optimization remain future work.
 - **Emulator:** still experimental and cannot run complete GBA games. CPU instruction coverage is partial; memory regions now include ROM, EWRAM, IWRAM, IO storage, palette RAM, VRAM and OAM, but IO side effects, BIOS, DMA, timers, interrupts, audio and cartridge peripherals are not implemented. The software PPU preview currently renders mode 0 text backgrounds only; OBJ sprites, bitmap modes, blending, windows and scanline timing are absent. Debugging adds PC breakpoints, bounded traces and mapped-memory reads.
 - **ChatGPT:** only secure local configuration/context/change-review foundations exist. There is no OpenAI API client, network transport, chat UI, token streaming, rate-limit handling or provider request yet.
 
@@ -51,10 +51,10 @@ Open the project in Android Studio, sync Gradle, install the requested SDK/NDK c
 
 ## Repository layout
 
-- \`app/src/main/java\`: Kotlin and Compose UI.
-- \`app/src/main/cpp\`: native C++ core and JNI boundary.
-- \`toolchain/gba/gba.ld\`: initial GNU ld memory map for GBA.
-- \`docs/ROADMAP.md\`: implementation roadmap.
+- `app/src/main/java`: Kotlin and Compose UI.
+- `app/src/main/cpp`: native C++ core and JNI boundary.
+- `toolchain/gba/gba.ld`: initial GNU ld memory map for GBA.
+- `docs/ROADMAP.md`: implementation roadmap.
 
 ## Legal notes
 

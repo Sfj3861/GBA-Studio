@@ -18,12 +18,14 @@ class AiChangeGateTest {
     }
     @Test fun redactsApiKeysTokensAndQuotedCredentialAssignments() {
         val safe=AiProjectContextBuilder.sanitizeForSharing(
-            """{"OPENAI_API_KEY":"sk-proj-abcdefghijklmnopqrstuvwxyz012345","GITHUB_TOKEN":"ghp_abcdefghijklmnopqrstuvwxyz012345","password":"hunter2 with spaces"}"""
+            """{"OPENAI_API_KEY":"sk-proj-abcdefghijklmnopqrstuvwxyz012345","GITHUB_TOKEN":"ghp_abcdefghijklmnopqrstuvwxyz012345","AWS_SECRET_ACCESS_KEY":"AKIA1234567890ABCDEF","password":"hunter2 with spaces","authorization":"Bearer abc.def.ghi"}"""
         )
         assertFalse(safe.contains("sk-proj-"))
         assertFalse(safe.contains("ghp_"))
+        assertFalse(safe.contains("AKIA"))
         assertFalse(safe.contains("hunter2"))
         assertFalse(safe.contains("with spaces"))
+        assertFalse(safe.contains("abc.def.ghi"))
         assertTrue(safe.contains("[REDACTED]"))
     }
     @Test fun proposalsDefaultToUnapproved() {
