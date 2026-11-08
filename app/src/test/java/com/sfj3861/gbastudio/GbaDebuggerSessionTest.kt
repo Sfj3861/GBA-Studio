@@ -11,18 +11,19 @@ class GbaDebuggerSessionTest {
         return data
     }
     @Test fun stopsBeforeBreakpointAndCanSingleStepThroughIt() {
-        val core=GbaEmulatorCore(rom(0xE3A00001.toInt(),0xE3A01002.toInt()))
+        // Test code is stored after the 0xC0-byte GBA header, so start at that code offset.
+        val core=GbaEmulatorCore(rom(0xE3A00001.toInt(),0xE3A01002.toInt()),entryOffset=0xC0)
         val debugger=GbaDebuggerSession(core)
-        debugger.addBreakpoint(0x08000004)
+        debugger.addBreakpoint(0x080000C4)
         val stopped=debugger.run(10)
         assertTrue(stopped.stoppedAtBreakpoint)
-        assertEquals(0x08000004,stopped.cpu.pc)
+        assertEquals(0x080000C4,stopped.cpu.pc)
         val stepped=debugger.step()
         assertEquals(2,stepped.cpu.steps)
         assertEquals(2,stepped.cpu.registers[1])
     }
     @Test fun recordsTraceAndReadsMappedMemory() {
-        val core=GbaEmulatorCore(rom(0xE3A00001.toInt()))
+        val core=GbaEmulatorCore(rom(0xE3A00001.toInt()),entryOffset=0xC0)
         core.writeMemory32(0x02000000,0x12345678)
         val debugger=GbaDebuggerSession(core,8)
         assertEquals("78 56 34 12",debugger.readMemoryHex(0x02000000,4))
