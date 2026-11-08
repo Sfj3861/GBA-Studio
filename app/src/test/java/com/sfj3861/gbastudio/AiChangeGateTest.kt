@@ -14,6 +14,9 @@ class AiChangeGateTest {
         assertTrue(AiProjectContextBuilder.isCredentialPath("config/secrets.yaml"))
         assertTrue(AiProjectContextBuilder.isCredentialPath(".aws/credentials"))
         assertTrue(AiProjectContextBuilder.isCredentialPath("keys/release.jks"))
+        assertTrue(AiProjectContextBuilder.isCredentialPath(".git-credentials"))
+        assertTrue(AiProjectContextBuilder.isCredentialPath("config/.git-credentials"))
+        assertTrue(AiProjectContextBuilder.isCredentialPath("git-credentials"))
         assertFalse(AiProjectContextBuilder.isCredentialPath("src/main.c"))
     }
     @Test fun redactsApiKeysTokensAndQuotedCredentialAssignments() {
