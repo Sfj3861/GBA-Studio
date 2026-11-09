@@ -67,7 +67,7 @@ object AiProjectContextBuilder {
     private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
 
     internal fun isCredentialPath(path:String):Boolean {
-        val segments=path.replace('\\\\','/').split('/')
+        val segments=path.replace('\\','/').split('/')
         val names=segments.map{it.lowercase()}
         return names.any { name ->
             name in forbiddenNames || name==".env" || name.startsWith(".env.") ||
