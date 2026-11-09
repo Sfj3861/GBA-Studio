@@ -17,6 +17,8 @@ class AiChangeGateTest {
         assertTrue(AiProjectContextBuilder.isCredentialPath(".git-credentials"))
         assertTrue(AiProjectContextBuilder.isCredentialPath("config/.git-credentials"))
         assertTrue(AiProjectContextBuilder.isCredentialPath("git-credentials"))
+        assertTrue(AiProjectContextBuilder.isCredentialPath(".gitconfig"))
+        assertTrue(AiProjectContextBuilder.isCredentialPath("config/.gitconfig"))
         assertTrue(AiProjectContextBuilder.isCredentialPath(".git/config"))
         assertTrue(AiProjectContextBuilder.isCredentialPath("src/.git/config"))
         assertTrue(AiProjectContextBuilder.isCredentialPath("""src\.git\config"""))
@@ -25,7 +27,7 @@ class AiChangeGateTest {
     }
     @Test fun redactsApiKeysTokensAndQuotedCredentialAssignments() {
         val safe=AiProjectContextBuilder.sanitizeForSharing(
-            """{"OPENAI_API_KEY":"sk-proj-abcdefghijklmnopqrstuvwxyz012345","GITHUB_TOKEN":"ghp_abcdefghijklmnopqrstuvwxyz012345","AWS_SECRET_ACCESS_KEY":"AKIA1234567890ABCDEF","password":"hunter2 with spaces","authorization":"Bearer abc.def.ghi"}"""
+            """{"OPENAI_API_KEY":"sk-proj-abcdefghijklmnopqrstuvwxyz012345","GITHUB_TOKEN":"ghp_abcdefghijklmnopqrstuvwxyz012345","AWS_SECRET_ACCESS_KEY":"AKIA1234567890ABCDEF","password":"hunter2 with spaces","authorization":"Bearer abc.def.ghi","http.extraheader":"Basic dXNlcjpwYXNz"}"""
         )
         assertFalse(safe.contains("sk-proj-"))
         assertFalse(safe.contains("ghp_"))
@@ -33,6 +35,7 @@ class AiChangeGateTest {
         assertFalse(safe.contains("hunter2"))
         assertFalse(safe.contains("with spaces"))
         assertFalse(safe.contains("abc.def.ghi"))
+        assertFalse(safe.contains("dXNlcjpwYXNz"))
         assertTrue(safe.contains("[REDACTED]"))
     }
     @Test fun proposalsDefaultToUnapproved() {
