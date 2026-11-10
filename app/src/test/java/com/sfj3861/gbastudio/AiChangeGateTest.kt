@@ -38,6 +38,20 @@ class AiChangeGateTest {
         assertFalse(safe.contains("dXNlcjpwYXNz"))
         assertTrue(safe.contains("[REDACTED]"))
     }
+    @Test fun redactsGitConfigExtraHeaderValuesIncludingLineContinuations() {
+        val config = """
+            [http]
+                extraHeader = AUTHORIZATION: Basic dXNlcjpwYXNz
+            [https://example.invalid]
+                extraHeader = AUTHORIZATION: Basic \
+                    c2Vjb25kLXNlY3JldA==
+        """.trimIndent()
+        val safe=AiProjectContextBuilder.sanitizeForSharing(config)
+        assertFalse(safe.contains("dXNlcjpwYXNz"))
+        assertFalse(safe.contains("c2Vjb25kLXNlY3JldA=="))
+        assertTrue(safe.contains("[REDACTED]"))
+    }
+
     @Test fun proposalsDefaultToUnapproved() {
         val proposal=AiChangeProposal("src/main.c","int main(){return 0;}","Refactor")
         assertFalse(proposal.approved)
