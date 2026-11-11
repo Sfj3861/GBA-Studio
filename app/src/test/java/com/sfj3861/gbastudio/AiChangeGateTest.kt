@@ -45,10 +45,16 @@ class AiChangeGateTest {
             [https://example.invalid]
                 extraHeader = AUTHORIZATION: Basic \
                     c2Vjb25kLXNlY3JldA==
+            [https://multi.example.invalid]
+                extraHeader = AUTHORIZATION: Basic \
+                    first-continuation \
+                    final-continuation-secret
         """.trimIndent()
         val safe=AiProjectContextBuilder.sanitizeForSharing(config)
         assertFalse(safe.contains("dXNlcjpwYXNz"))
         assertFalse(safe.contains("c2Vjb25kLXNlY3JldA=="))
+        assertFalse(safe.contains("first-continuation"))
+        assertFalse(safe.contains("final-continuation-secret"))
         assertTrue(safe.contains("[REDACTED]"))
     }
 
