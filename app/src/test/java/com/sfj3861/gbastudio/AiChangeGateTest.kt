@@ -1,5 +1,7 @@
 package com.sfj3861.gbastudio
 
+import java.io.File
+import java.nio.file.Files
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,6 +72,47 @@ class AiChangeGateTest {
         assertFalse(safe.contains("no-equals-secret"))
         assertFalse(safe.contains("no-equals-continuation-secret"))
         assertTrue(safe.contains("[REDACTED]"))
+    }
+
+    @Test fun contextRejectsCredentialTargetsReachedThroughSymlinks() {
+        val root=Files.createTempDirectory("gba-ai-context").toFile()
+        try {
+            val secret=File(root,"secrets/api-token.txt").apply {
+                parentFile?.mkdirs()
+                writeText("sensitive")
+            }
+            val alias=File(root,"src/config.txt").apply {
+                parentFile?.mkdirs()
+            }
+            Files.createSymbolicLink(alias.toPath(),secret.toPath())
+
+            assertFalse(AiProjectContextBuilder.isCredentialPath("src/config.txt"))
+            val resolved=AiProjectContextBuilder.canonicalProjectRelativePath(root,"src/config.txt")
+            assertTrue(AiProjectContextBuilder.isCredentialPath(resolved))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun contextRejectsSymlinkTargetsOutsideProject() {
+        val root=Files.createTempDirectory("gba-ai-context").toFile()
+        val outside=Files.createTempFile("gba-ai-secret",".txt")
+        try {
+            val alias=File(root,"src/config.txt").apply {
+                parentFile?.mkdirs()
+            }
+            Files.createSymbolicLink(alias.toPath(),outside)
+            var rejected=false
+            try {
+                AiProjectContextBuilder.canonicalProjectRelativePath(root,"src/config.txt")
+            } catch (_: IllegalArgumentException) {
+                rejected=true
+            }
+            assertTrue(rejected)
+        } finally {
+            root.deleteRecursively()
+            Files.deleteIfExists(outside)
+        }
     }
 
     @Test fun proposalsDefaultToUnapproved() {
