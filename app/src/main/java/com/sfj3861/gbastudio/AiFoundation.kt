@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import java.io.File
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -79,6 +80,19 @@ object AiProjectContextBuilder {
         } || names.dropLast(1).any { it in forbiddenDirectories }
     }
 
+    /** Resolve aliases before applying credential exclusions so symlinks cannot bypass the filter. */
+    internal fun canonicalProjectRelativePath(projectDirectory:File,path:String):String {
+        require(path.isNotBlank() && !path.startsWith("/") && !path.contains('\\')) {
+            "Ruta de contexto no válida."
+        }
+        val canonicalRoot=projectDirectory.canonicalFile
+        val canonicalFile=File(canonicalRoot,path).canonicalFile
+        require(canonicalFile.path.startsWith(canonicalRoot.path+File.separator)) {
+            "La ruta de contexto sale de la carpeta del proyecto."
+        }
+        return canonicalFile.relativeTo(canonicalRoot).invariantSeparatorsPath
+    }
+
     private fun redactSecrets(text:String):String {
         val withoutGitHeaders=extraHeaderAssignment.replace(text) { match ->
             match.groupValues[1]+"\"[REDACTED]\""
@@ -96,7 +110,10 @@ object AiProjectContextBuilder {
         val included=linkedMapOf<String,String>()
         var total=0
         selectedPaths.distinct().forEach { path ->
-            require(!isCredentialPath(path)) { "El archivo $path está excluido por seguridad." }
+            val canonicalPath=canonicalProjectRelativePath(project.directory,path)
+            require(!isCredentialPath(path) && !isCredentialPath(canonicalPath)) {
+                "El archivo $path está excluido por seguridad."
+            }
             val raw=repository.readText(project,path)
             require(raw.length<=MAX_FILE_CHARS) { "El archivo $path supera el límite de contexto." }
             val content=redactSecrets(raw)
