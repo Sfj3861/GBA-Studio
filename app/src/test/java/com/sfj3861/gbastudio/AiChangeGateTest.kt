@@ -58,6 +58,20 @@ class AiChangeGateTest {
         assertTrue(safe.contains("[REDACTED]"))
     }
 
+    @Test fun redactsGitConfigExtraHeaderValuesWithoutEqualsIncludingLineContinuations() {
+        val config = """
+            [http]
+                extraHeader AUTHORIZATION: Basic no-equals-secret
+            [https://no-equals.example.invalid]
+                extraHeader AUTHORIZATION: Basic \\
+                    no-equals-continuation-secret
+        """.trimIndent()
+        val safe=AiProjectContextBuilder.sanitizeForSharing(config)
+        assertFalse(safe.contains("no-equals-secret"))
+        assertFalse(safe.contains("no-equals-continuation-secret"))
+        assertTrue(safe.contains("[REDACTED]"))
+    }
+
     @Test fun proposalsDefaultToUnapproved() {
         val proposal=AiChangeProposal("src/main.c","int main(){return 0;}","Refactor")
         assertFalse(proposal.approved)
