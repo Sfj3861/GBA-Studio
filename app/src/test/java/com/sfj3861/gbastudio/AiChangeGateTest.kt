@@ -115,6 +115,55 @@ class AiChangeGateTest {
         }
     }
 
+    @Test fun approvedChangeTargetsRejectCredentialPaths() {
+        val root=Files.createTempDirectory("gba-ai-change-gate").toFile()
+        try {
+            val blockedPaths=listOf(
+                "secrets/api-token.json",
+                "config/credentials.json",
+                "google-services.json",
+                ".git/config",
+                "config/.git-credentials"
+            )
+            blockedPaths.forEach { path ->
+                assertTrue(
+                    "Expected credential target to be rejected: $path",
+                    runCatching { AiChangeGate.validatedTargetPath(root,path) }.isFailure
+                )
+            }
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun approvedChangeRejectsSymlinkAliasesToCredentialFiles() {
+        val root=Files.createTempDirectory("gba-ai-change-gate").toFile()
+        try {
+            val secret=File(root,"secrets/api-token.json").apply {
+                parentFile?.mkdirs()
+                writeText("""{"token":"private"}""")
+            }
+            val alias=File(root,"src/settings.json").apply { parentFile?.mkdirs() }
+            Files.createSymbolicLink(alias.toPath(),secret.toPath())
+
+            assertTrue(
+                runCatching { AiChangeGate.validatedTargetPath(root,"src/settings.json") }.isFailure
+            )
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun approvedChangeKeepsOrdinaryProjectTargets() {
+        val root=Files.createTempDirectory("gba-ai-change-gate").toFile()
+        try {
+            File(root,"src").mkdirs()
+            assertTrue(AiChangeGate.validatedTargetPath(root,"src/main.c")=="src/main.c")
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
     @Test fun proposalsDefaultToUnapproved() {
         val proposal=AiChangeProposal("src/main.c","int main(){return 0;}","Refactor")
         assertFalse(proposal.approved)
