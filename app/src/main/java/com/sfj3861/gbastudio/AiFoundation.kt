@@ -114,11 +114,11 @@ object AiProjectContextBuilder {
             require(!isCredentialPath(path) && !isCredentialPath(canonicalPath)) {
                 "El archivo $path está excluido por seguridad."
             }
-            val raw=repository.readText(project,path)
+            val raw=repository.readText(project,canonicalPath)
             require(raw.length<=MAX_FILE_CHARS) { "El archivo $path supera el límite de contexto." }
             val content=redactSecrets(raw)
             require(total+content.length<=MAX_TOTAL_CHARS) { "El contexto supera 256000 caracteres." }
-            included[path]=content;total+=content.length
+            included[canonicalPath]=content;total+=content.length
         }
         return AiProjectContext(project.id,included,total)
     }
@@ -126,10 +126,24 @@ object AiProjectContextBuilder {
 
 data class AiChangeProposal(val relativePath:String,val replacement:String,val summary:String,val approved:Boolean=false)
 object AiChangeGate {
+    /**
+     * Resolve aliases before validating a proposed write. An approved proposal must not
+     * target credentials through either its displayed path or a symlink destination.
+     */
+    internal fun validatedTargetPath(projectDirectory:File,relativePath:String):String {
+        val canonicalPath=AiProjectContextBuilder.canonicalProjectRelativePath(projectDirectory,relativePath)
+        require(!AiProjectContextBuilder.isCredentialPath(relativePath) &&
+            !AiProjectContextBuilder.isCredentialPath(canonicalPath)) {
+            "Los archivos de credenciales están excluidos de las propuestas de cambio."
+        }
+        return canonicalPath
+    }
+
     /** A proposed change is never applied unless the user explicitly approves it. */
     fun apply(proposal:AiChangeProposal,project:GbaProject,repository:ProjectRepository) {
         require(proposal.approved) { "El cambio requiere aprobación explícita." }
         require(proposal.summary.isNotBlank() && proposal.replacement.length<=2_000_000) { "Propuesta no válida." }
-        repository.writeText(project,proposal.relativePath,proposal.replacement)
+        val safePath=validatedTargetPath(project.directory,proposal.relativePath)
+        repository.writeText(project,safePath,proposal.replacement)
     }
 }
