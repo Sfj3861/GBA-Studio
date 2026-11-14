@@ -67,6 +67,8 @@ object AiProjectContextBuilder {
     private val extraHeaderAssignment = Regex("""(?im)([A-Za-z0-9_.-]*\bextra[_-]?header\b(?:[ \t]*["']?[ \t]*[:=][ \t]*|[ \t]+))(?:(?!\\\r?\n)[^\r\n])*(?:\\\r?\n[ \t]*(?:(?!\\\r?\n)[^\r\n])*)*""")
     private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?key(?:[_-]?id)?|token|password|secret|private[_-]?key|authorization|extra[_-]?header))(\s*["']?\s*[:=]\s*)(?:(?:Bearer|Basic)\s+)?(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)""")
     private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
+    // Catch common provider tokens even when copied into source text without a secret-like variable name.
+    private val knownCredentialToken=Regex("""\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35})\b""")
 
     internal fun isCredentialPath(path:String):Boolean {
         val segments=path.replace('\\','/').split('/')
@@ -97,9 +99,11 @@ object AiProjectContextBuilder {
         val withoutGitHeaders=extraHeaderAssignment.replace(text) { match ->
             match.groupValues[1]+"\"[REDACTED]\""
         }
-        return providerKey.replace(assignmentSecret.replace(withoutGitHeaders) { match ->
+        val redactedAssignments=assignmentSecret.replace(withoutGitHeaders) { match ->
             match.groupValues[1]+match.groupValues[2]+"\"[REDACTED]\""
-        }) { "[REDACTED_API_KEY]" }
+        }
+        val redactedKnownTokens=knownCredentialToken.replace(redactedAssignments) { "[REDACTED_TOKEN]" }
+        return providerKey.replace(redactedKnownTokens) { "[REDACTED_API_KEY]" }
     }
 
     internal fun sanitizeForSharing(text:String)=redactSecrets(text)
