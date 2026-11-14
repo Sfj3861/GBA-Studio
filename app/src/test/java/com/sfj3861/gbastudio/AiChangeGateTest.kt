@@ -164,6 +164,20 @@ class AiChangeGateTest {
         }
     }
 
+    @Test fun redactsStandaloneProviderTokensWithoutSecretLikeVariableNames() {
+        val slackToken=listOf("xoxb-","1234567890-","abcdef1234567890").joinToString("")
+        val tokens=listOf(
+            "ghp_abcdefghijklmnopqrstuvwxyz012345",
+            "github_pat_abcdefghijklmnopqrstuvwxyz0123456789_abcdefghijklmnopqrstuvwxyz0123456789",
+            slackToken,
+            "AIza12345678901234567890123456789012345"
+        )
+        val source=tokens.joinToString(separator="\\n") { "val ordinaryValue = \\"$it\\"" }
+        val safe=AiProjectContextBuilder.sanitizeForSharing(source)
+        tokens.forEach { token -> assertFalse("Token was not redacted: $token",safe.contains(token)) }
+        assertTrue(safe.contains("[REDACTED_TOKEN]"))
+    }
+
     @Test fun proposalsDefaultToUnapproved() {
         val proposal=AiChangeProposal("src/main.c","int main(){return 0;}","Refactor")
         assertFalse(proposal.approved)
