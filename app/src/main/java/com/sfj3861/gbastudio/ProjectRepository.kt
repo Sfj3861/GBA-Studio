@@ -78,12 +78,16 @@ class ProjectRepository(context: Context) {
 
     fun exportProject(project: GbaProject, output: OutputStream) {
         requireOwned(project)
+        val canonicalRoot = project.directory.canonicalFile
+        val exportedPaths = mutableSetOf<String>()
         ZipOutputStream(output).use { zip ->
             project.directory.walkTopDown().filter { it.isFile }.forEach { file ->
-                val relative = file.relativeTo(project.directory).invariantSeparatorsPath
-                require(!relative.startsWith("/") && !relative.split("/").contains(".."))
+                val canonicalFile = ProjectArchivePathValidator.canonicalExportFile(project.directory, file)
+                val relative = canonicalFile.relativeTo(canonicalRoot).invariantSeparatorsPath
+                // A project-local symlink may alias an already exported file; write each target once.
+                if (!exportedPaths.add(relative)) return@forEach
                 zip.putNextEntry(ZipEntry(relative))
-                file.inputStream().use { input -> input.copyTo(zip) }
+                canonicalFile.inputStream().use { input -> input.copyTo(zip) }
                 zip.closeEntry()
             }
         }
