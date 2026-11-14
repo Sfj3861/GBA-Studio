@@ -11,7 +11,7 @@ object ProjectArchivePathValidator {
 
     fun isSafe(name: String): Boolean {
         if (name.isBlank() || name.length > MAX_PATH_LENGTH) return false
-        if (name.startsWith("/") || name.contains('\\\\') || name.contains('\\u0000')) return false
+        if (name.startsWith("/") || name.contains('\\') || name.contains('\u0000')) return false
         if (Regex("^[A-Za-z]:").containsMatchIn(name)) return false
 
         val normalized = name.removeSuffix("/")
