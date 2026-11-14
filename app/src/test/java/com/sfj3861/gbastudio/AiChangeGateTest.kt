@@ -172,7 +172,7 @@ class AiChangeGateTest {
             slackToken,
             "AIza12345678901234567890123456789012345"
         )
-        val source=tokens.joinToString(separator="\\n") { "val ordinaryValue = \\"$it\\"" }
+        val source = tokens.joinToString(separator = "\n") { token -> "val ordinaryValue = " + '"' + token + '"' }
         val safe=AiProjectContextBuilder.sanitizeForSharing(source)
         tokens.forEach { token -> assertFalse("Token was not redacted: $token",safe.contains(token)) }
         assertTrue(safe.contains("[REDACTED_TOKEN]"))
