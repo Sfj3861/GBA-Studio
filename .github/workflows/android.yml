@@ -8,10 +8,16 @@ on:
   workflow_dispatch:
 
 
-# Avoid spending runners on obsolete commits when several files are pushed in sequence.
+# Keep push and pull_request checks isolated: a push event must not cancel the
+# PR validation for the same branch (or vice versa). Superseded runs are still
+# cancelled within each event type.
 concurrency:
-  group: gba-studio-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  group: gba-studio-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
+
+# The workflow only checks out source and builds/tests it.
+permissions:
+  contents: read
 
 jobs:
   assemble-debug:
