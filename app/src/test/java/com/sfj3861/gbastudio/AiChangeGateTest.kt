@@ -27,6 +27,29 @@ class AiChangeGateTest {
         assertTrue(AiProjectContextBuilder.isCredentialPath("""config\secrets\service-account.json"""))
         assertFalse(AiProjectContextBuilder.isCredentialPath("src/main.c"))
     }
+    @Test fun contextAllowsTextSourcesAndRejectsBinaryAssetsAndRoms() {
+        listOf(
+            "src/main.c",
+            "include/game.hpp",
+            "README.md",
+            "docs/roadmap.md",
+            "project.json",
+            "toolchain/gba/gba.ld",
+            "CMakeLists.txt"
+        ).forEach { path ->
+            assertTrue("Expected text context path to be supported: $path", AiProjectContextBuilder.isSupportedContextPath(path))
+        }
+        listOf(
+            "assets/background.png",
+            "assets/music.wav",
+            "build/game.gba",
+            "archives/project.zip",
+            "data/cache.sqlite"
+        ).forEach { path ->
+            assertFalse("Binary or opaque path must not enter AI context: $path", AiProjectContextBuilder.isSupportedContextPath(path))
+        }
+    }
+
     @Test fun redactsApiKeysTokensAndQuotedCredentialAssignments() {
         val safe=AiProjectContextBuilder.sanitizeForSharing(
             """{"OPENAI_API_KEY":"sk-proj-abcdefghijklmnopqrstuvwxyz012345","GITHUB_TOKEN":"ghp_abcdefghijklmnopqrstuvwxyz012345","AWS_SECRET_ACCESS_KEY":"AKIA1234567890ABCDEF","password":"hunter2 with spaces","authorization":"Bearer abc.def.ghi","http.extraheader":"Basic dXNlcjpwYXNz"}"""
