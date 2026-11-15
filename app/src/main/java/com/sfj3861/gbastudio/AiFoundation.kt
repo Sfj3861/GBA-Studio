@@ -64,11 +64,25 @@ object AiProjectContextBuilder {
     )
     private val forbiddenDirectories=setOf("secrets","credentials","private-keys","private_keys",".aws",".azure",".ssh",".gnupg",".git")
     private val forbiddenSuffixes=listOf(".keystore",".jks",".pem",".p12",".pfx",".key",".p8",".der",".crt",".cer",".asc",".gpg",".secret",".credentials")
+    // Keep the future AI context limited to user-selected text/source formats, never binary assets or ROMs.
+    private val allowedContextExtensions=setOf(
+        "c","h","cc","cpp","cxx","hh","hpp","hxx","s","asm","inc",
+        "txt","md","markdown","json","xml","yaml","yml","toml","ini","cfg","conf",
+        "properties","gradle","kts","ld","cmake","mk","make","sh","gitignore","gitattributes"
+    )
+    private val allowedContextFileNames=setOf("readme","license","makefile","cmakelists.txt")
     private val extraHeaderAssignment = Regex("""(?im)([A-Za-z0-9_.-]*\bextra[_-]?header\b(?:[ \t]*["']?[ \t]*[:=][ \t]*|[ \t]+))(?:(?!\\\r?\n)[^\r\n])*(?:\\\r?\n[ \t]*(?:(?!\\\r?\n)[^\r\n])*)*""")
     private val assignmentSecret=Regex("""(?i)([A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?key(?:[_-]?id)?|token|password|secret|private[_-]?key|authorization|extra[_-]?header))(\s*["']?\s*[:=]\s*)(?:(?:Bearer|Basic)\s+)?(?:"[^"]*"|'[^']*'|[^\s,;}\]]+)""")
     private val providerKey=Regex("""\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b""")
     // Catch common provider tokens even when copied into source text without a secret-like variable name.
     private val knownCredentialToken=Regex("""\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35})\b""")
+
+    internal fun isSupportedContextPath(path:String):Boolean {
+        val name=path.substringAfterLast('/').lowercase()
+        if(name in allowedContextFileNames) return true
+        val extension=name.substringAfterLast('.', "")
+        return extension in allowedContextExtensions
+    }
 
     internal fun isCredentialPath(path:String):Boolean {
         val segments=path.replace('\\','/').split('/')
@@ -115,10 +129,14 @@ object AiProjectContextBuilder {
         var total=0
         selectedPaths.distinct().forEach { path ->
             val canonicalPath=canonicalProjectRelativePath(project.directory,path)
+            require(isSupportedContextPath(path) && isSupportedContextPath(canonicalPath)) {
+                "Solo se pueden incluir archivos de texto y código compatibles con el contexto."
+            }
             require(!isCredentialPath(path) && !isCredentialPath(canonicalPath)) {
                 "El archivo $path está excluido por seguridad."
             }
             val raw=repository.readText(project,canonicalPath)
+            require('\u0000' !in raw) { "El archivo $path parece contener datos binarios." }
             require(raw.length<=MAX_FILE_CHARS) { "El archivo $path supera el límite de contexto." }
             val content=redactSecrets(raw)
             require(total+content.length<=MAX_TOTAL_CHARS) { "El contexto supera 256000 caracteres." }
