@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -57,6 +58,8 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
     var deleting by remember { mutableStateOf<GbaProject?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val saveCoordinator = remember { ProjectSaveCoordinator() }
+    var editRevision by remember { mutableStateOf(0L) }
     val context = LocalContext.current
     fun refresh() { projects = repository.list() }
     var exportTarget by remember { mutableStateOf<GbaProject?>(null) }
@@ -96,19 +99,34 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
     fun loadFile(project: GbaProject, relativePath: String) {
         scope.launch {
             try {
+                val previousProject = activeProject
                 val previousFile = selectedFile
                 val previousDraft = draft
                 val previousDirty = dirty
-                if (previousDirty && activeProject != null && previousFile != null) {
-                    withContext(Dispatchers.IO) { repository.writeText(activeProject!!, previousFile, previousDraft) }
+                val previousRevision = editRevision
+                if (previousDirty && previousProject != null && previousFile != null) {
+                    val saved = saveCoordinator.saveIfCurrent(previousRevision, { editRevision }) {
+                        withContext(Dispatchers.IO) {
+                            repository.writeText(previousProject, previousFile, previousDraft)
+                        }
+                    }
+                    check(saved && editRevision == previousRevision) {
+                        "El archivo cambió mientras se guardaba; vuelve a intentarlo."
+                    }
                 }
                 val text = withContext(Dispatchers.IO) { repository.readText(project, relativePath) }
+                check(editRevision == previousRevision) {
+                    "El archivo cambió mientras se abría; vuelve a intentarlo."
+                }
                 activeProject = project
                 selectedFile = relativePath
                 draft = text
+                editRevision += 1
                 dirty = false
                 saveState = "Guardado"
                 error = null
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 error = e.message ?: "No se pudo abrir el archivo."
             }
@@ -116,12 +134,21 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
     }
 
     fun saveFile(project: GbaProject, relativePath: String, text: String) {
+        val revision = editRevision
         scope.launch {
             try {
-                withContext(Dispatchers.IO) { repository.writeText(project, relativePath, text) }
-                dirty = false
-                saveState = "Guardado"
-                refresh()
+                val saved = saveCoordinator.saveIfCurrent(revision, { editRevision }) {
+                    withContext(Dispatchers.IO) { repository.writeText(project, relativePath, text) }
+                }
+                if (saved && editRevision == revision &&
+                    activeProject?.id == project.id && selectedFile == relativePath
+                ) {
+                    dirty = false
+                    saveState = "Guardado"
+                    refresh()
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 saveState = "Error al guardar"
                 error = e.message ?: "No se pudo guardar el archivo."
@@ -130,18 +157,28 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
     }
 
     LaunchedEffect(Unit) { refresh() }
-    LaunchedEffect(activeProject?.id, selectedFile, draft, dirty) {
-        if (dirty && activeProject != null && selectedFile != null) {
-            saveState = "Guardando…"
-            delay(900)
+    LaunchedEffect(activeProject?.id, selectedFile, draft, dirty, editRevision) {
+        if (dirty) {
             val project = activeProject
             val file = selectedFile
-            if (project != null && file != null && dirty) {
+            val snapshot = draft
+            val revision = editRevision
+            if (project != null && file != null) {
+                saveState = "Guardando…"
+                delay(900)
                 try {
-                    withContext(Dispatchers.IO) { repository.writeText(project, file, draft) }
-                    dirty = false
-                    saveState = "Autoguardado"
-                    refresh()
+                    val saved = saveCoordinator.saveIfCurrent(revision, { editRevision }) {
+                        withContext(Dispatchers.IO) { repository.writeText(project, file, snapshot) }
+                    }
+                    if (saved && editRevision == revision &&
+                        activeProject?.id == project.id && selectedFile == file
+                    ) {
+                        dirty = false
+                        saveState = "Autoguardado"
+                        refresh()
+                    }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     saveState = "Error al guardar"
                     error = e.message ?: "No se pudo autoguardar."
@@ -196,17 +233,31 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
             val project = activeProject!!
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = {
+                    val revision = editRevision
+                    val file = selectedFile
+                    val opened = activeProject
+                    val content = draft
+                    val wasDirty = dirty
                     scope.launch {
                         try {
-                            val file = selectedFile
-                            val opened = activeProject
-                            if (dirty && file != null && opened != null) {
-                                withContext(Dispatchers.IO) { repository.writeText(opened, file, draft) }
+                            if (wasDirty && file != null && opened != null) {
+                                val saved = saveCoordinator.saveIfCurrent(revision, { editRevision }) {
+                                    withContext(Dispatchers.IO) { repository.writeText(opened, file, content) }
+                                }
+                                check(saved && editRevision == revision) {
+                                    "El archivo cambió mientras se guardaba; vuelve a intentarlo."
+                                }
+                            }
+                            check(editRevision == revision) {
+                                "El archivo cambió mientras se guardaba; vuelve a intentarlo."
                             }
                             activeProject = null
                             selectedFile = null
+                            editRevision += 1
                             dirty = false
                             refresh()
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             error = e.message ?: "No se pudieron guardar los cambios."
                         }
@@ -246,7 +297,7 @@ fun ProjectManagerScreen(repository: ProjectRepository, screenTitle: String = "M
                         }
                         OutlinedTextField(
                             value = draft,
-                            onValueChange = { draft = it; dirty = true; saveState = "Cambios pendientes" },
+                            onValueChange = { draft = it; editRevision += 1; dirty = true; saveState = "Cambios pendientes" },
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                             visualTransformation = if (selectedFile?.substringAfterLast('.', "")?.lowercase() in setOf("c", "h", "cpp", "hpp"))
