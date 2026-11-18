@@ -43,9 +43,19 @@ object GbaWavConverter {
         }
         val output=ByteArray(outCount.toInt())
         for(i in output.indices) {
-            val src=((i.toLong()*hz)/targetRate).toInt().coerceAtMost(count-1)
-            var mixed=0; for(c in 0 until ch) mixed+=sample(src,c); mixed/=ch
-            output[i]=((mixed+32768) ushr 8).coerceIn(0,255).toByte()
+            val position=i.toLong()*hz
+            val left=(position/targetRate).toInt().coerceAtMost(count-1)
+            val right=(left+1).coerceAtMost(count-1)
+            val fraction=(position%targetRate).toInt()
+            var leftMixed=0; var rightMixed=0
+            for(c in 0 until ch) {
+                leftMixed+=sample(left,c)
+                rightMixed+=sample(right,c)
+            }
+            leftMixed/=ch
+            rightMixed/=ch
+            val mixed=(leftMixed.toLong()*(targetRate-fraction)+rightMixed.toLong()*fraction)/targetRate
+            output[i]=((mixed.toInt()+32768) ushr 8).coerceIn(0,255).toByte()
         }
         return GbaPcmSample(targetRate,output,ch,depth,output.size*1000L/targetRate)
     }
