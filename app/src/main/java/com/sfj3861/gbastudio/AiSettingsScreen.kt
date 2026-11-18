@@ -53,7 +53,7 @@ fun AiSettingsScreen() {
             val parsed = runCatching { Uri.parse(clean) }.getOrNull()
             val host = parsed?.host?.lowercase()
             val secureRemote = parsed?.scheme == "https" && !host.isNullOrBlank()
-            val localDevelopment = parsed?.scheme == "http" &&
+            val localDevelopment = parsed?.scheme == "http" && host != null &&
                 host in setOf("localhost", "127.0.0.1", "10.0.2.2")
             val safe = (secureRemote || localDevelopment) &&
                 parsed?.userInfo == null && parsed?.query == null && parsed?.fragment == null
