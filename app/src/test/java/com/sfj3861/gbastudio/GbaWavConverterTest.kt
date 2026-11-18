@@ -15,6 +15,7 @@ class GbaWavConverterTest {
         return o.toByteArray()
     }
     @Test fun convertsAndResamplesPcm(){val r=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,64,128.toByte(),192.toByte())),16000);assertEquals(8,r.samplesUnsigned8.size);assertEquals(16000,r.sampleRate);assertEquals(128,r.samplesUnsigned8[4].toInt() and 255)}
+    @Test fun linearlyInterpolatesWhenUpsampling(){val r=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,255.toByte())),16000);assertEquals(4,r.samplesUnsigned8.size);assertTrue((r.samplesUnsigned8[1].toInt() and 255) in 126..129);assertTrue((r.samplesUnsigned8[2].toInt() and 255) in 253..255)}
     @Test fun exportsWaveAndC(){val r=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,128.toByte(),255.toByte())),8000);assertEquals("RIFF",String(GbaWavConverter.wavBytes(r),0,4,Charsets.US_ASCII));assertTrue(GbaWavConverter.cSource(r).contains("gba_audio_samples[3]"));assertTrue(GbaWavConverter.cSource(r).contains("-128, 0, 127"))}
     @Test(expected=IllegalArgumentException::class) fun rejectsCompressedWave(){val w=wav8(8000,byteArrayOf(128.toByte()));w[20]=3;GbaWavConverter.convert(w)}
 }
