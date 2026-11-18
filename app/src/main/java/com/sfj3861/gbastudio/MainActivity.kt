@@ -132,6 +132,7 @@ private fun GbaStudioApp() {
                 drawerState = drawerState,
                 drawerContent = {
                     ModalDrawerSheet {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                         Text(
                             "GBA STUDIO",
                             Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
@@ -170,6 +171,7 @@ private fun GbaStudioApp() {
                                 },
                                 modifier = Modifier.padding(horizontal = 12.dp)
                             )
+                        }
                         }
                     }
                 }
