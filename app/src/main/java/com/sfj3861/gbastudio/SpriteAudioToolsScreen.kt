@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
@@ -89,6 +90,8 @@ fun SpriteAudioToolsScreen() {
                         track.play()
                         while (track.playState == AudioTrack.PLAYSTATE_PLAYING) delay(25)
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     status = "Error de reproducción: ${e.message}"
                 } finally {
@@ -140,8 +143,10 @@ fun SpriteAudioToolsScreen() {
         write(uri,pcm?.let{GbaWavConverter.wavBytes(it)},"WAV mono 8-bit")
     }
 
+    val trackOnDispose = rememberUpdatedState(audioTrack)
+    val jobOnDispose = rememberUpdatedState(playbackJob)
     DisposableEffect(bitmap){onDispose{bitmap?.takeUnless{it.isRecycled}?.recycle()}}
-    DisposableEffect(Unit) { onDispose { audioTrack?.let { runCatching { if (it.playState == AudioTrack.PLAYSTATE_PLAYING) it.stop() } }; playbackJob?.cancel() } }
+    DisposableEffect(Unit) { onDispose { trackOnDispose.value?.let { runCatching { if (it.playState == AudioTrack.PLAYSTATE_PLAYING) it.stop() } }; jobOnDispose.value?.cancel() } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)){
         Text("Sprites, animaciones y audio",style=MaterialTheme.typography.headlineMedium)
         Text("Herramientas de conversión para recursos OBJ y audio PCM de GBA. La reproducción en tiempo real aún no forma parte del emulador.")
@@ -150,6 +155,9 @@ fun SpriteAudioToolsScreen() {
                 Text("Sprite Studio · OBJ/OAM",style=MaterialTheme.typography.titleMedium)
                 Button(enabled=!busy,onClick={openImage.launch(arrayOf("image/*"))}){Text("Importar spritesheet")}
                 Text(bitmap?.let{"Imagen: ${it.width}×${it.height}"}?:"Ningún spritesheet cargado")
+                bitmap?.let { source ->
+                    Image(source.asImageBitmap(), contentDescription="Vista previa del spritesheet", contentScale=ContentScale.Fit, modifier=Modifier.fillMaxWidth().heightIn(max=220.dp))
+                }
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
                     OutlinedTextField(frameWidth,{frameWidth=it.filter(Char::isDigit).take(2)},label={Text("Ancho frame")},modifier=Modifier.weight(1f),singleLine=true)
                     OutlinedTextField(frameHeight,{frameHeight=it.filter(Char::isDigit).take(2)},label={Text("Alto frame")},modifier=Modifier.weight(1f),singleLine=true)
@@ -174,6 +182,7 @@ fun SpriteAudioToolsScreen() {
                             }
                         }
                     }
+                    DisposableEffect(framePreview) { onDispose { framePreview?.takeUnless { it.isRecycled }?.recycle() } }
                     framePreview?.let { preview ->
                         Image(preview.asImageBitmap(), contentDescription="Vista previa del frame ${selectedFrame + 1}", contentScale=ContentScale.Fit, modifier=Modifier.fillMaxWidth().heightIn(max=180.dp))
                     }
