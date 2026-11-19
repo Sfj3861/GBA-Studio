@@ -20,7 +20,7 @@
 - Audio Studio imports bounded RIFF/WAVE PCM (mono/stereo, 8/16-bit), downmixes and linearly resamples to mono unsigned 8-bit samples, supports local playback preview, and exports C arrays or normalized WAV. ADPCM, looping and emulator playback are not implemented.
 - Porting analyzer scans project C/C++ sources for common desktop-only APIs and portability risks; findings are heuristic and do not certify compatibility.
 - Debugger controller adds PC breakpoints, bounded execution traces and mapped-memory hex reads around the experimental CPU stepper.
-- AI foundation includes explicit allow-list project-context construction with size limits and credential-file exclusions, an approval gate for proposed file changes, and a backend URL setting. The Android app does not store an OpenAI API key; no OpenAI network client, chat UI or streaming is implemented yet.
+- AI foundation includes explicit allow-list project-context construction with size limits and credential-file exclusions, an approval gate for proposed file changes, and a backend URL setting. The Android app does not store OpenAI API keys and clears the obsolete encrypted local-key preference and Android Keystore alias at startup; no OpenAI network client, chat UI or streaming is implemented yet.
 - CMake/NDK native library and JNI bootstrap.
 - JVM tests cover ROM headers, disassembly, diagnostics, raw ROM image generation, palette quantization, CPU/memory stepping, debugger breakpoints/traces, mode-0 rendering, sprite OAM, PCM conversion, portability heuristics and AI credential filtering/redaction.
 
