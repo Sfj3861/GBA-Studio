@@ -72,6 +72,7 @@ private val primaryDestinations = listOf(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LegacyAiCredentialCleanup.clear(this)
         setContent { GbaStudioTheme { GbaStudioApp() } }
     }
 }
