@@ -1,5 +1,7 @@
 package com.sfj3861.gbastudio
 
+import java.io.File
+
 data class AiProjectContext(val projectId:String,val includedFiles:Map<String,String>,val totalCharacters:Int)
 
 object AiProjectContextBuilder {
@@ -60,10 +62,10 @@ object AiProjectContextBuilder {
 
     private fun redactSecrets(text:String):String {
         val withoutGitHeaders=extraHeaderAssignment.replace(text) { match ->
-            match.groupValues[1]+"\"[REDACTED]\""
+            match.groupValues[1]+"\\"[REDACTED]\\""
         }
         val redactedAssignments=assignmentSecret.replace(withoutGitHeaders) { match ->
-            match.groupValues[1]+match.groupValues[2]+"\"[REDACTED]\""
+            match.groupValues[1]+match.groupValues[2]+"\\"[REDACTED]\\""
         }
         val redactedKnownTokens=knownCredentialToken.replace(redactedAssignments) { "[REDACTED_TOKEN]" }
         return providerKey.replace(redactedKnownTokens) { "[REDACTED_API_KEY]" }
