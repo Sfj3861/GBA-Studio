@@ -67,9 +67,9 @@
 - [x] Debugger controller with PC breakpoints, bounded execution trace and mapped-memory hex reads
 - [ ] Conditional breakpoints, watchpoints, editable register panel and symbol-aware disassembly
 
-## Milestone 6 — ChatGPT foundation (local groundwork)
-- [x] Local API-key settings foundation encrypted with Android Keystore AES-GCM
-- [x] Encrypted local secret storage; no embedded API keys
+## Milestone 6 — AI integration foundation (local groundwork)
+- [x] Backend URL configuration; the Android app does not store OpenAI API keys
+
 - [x] Explicit allow-list context builder with size limits and credential-file exclusions
 - [x] Change proposal approval gate before project file writes
 - [x] Existing local tools remain usable without AI
