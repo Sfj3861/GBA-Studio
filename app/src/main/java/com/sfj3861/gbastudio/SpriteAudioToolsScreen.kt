@@ -211,7 +211,7 @@ fun SpriteAudioToolsScreen() {
                     OutlinedButton(enabled=pcm!=null&&!busy,onClick={saveAudioC.launch("audio_samples.c")}){Text("Exportar C")}
                     OutlinedButton(enabled=pcm!=null&&!busy,onClick={saveAudioWav.launch("audio_gba.wav")}){Text("Exportar WAV")}
                 }
-                Text("Admite PCM sin compresión, mono/estéreo, 8/16 bits. La conversión a 8-bit mono usa remuestreo por vecino más próximo; no incluye compresión ADPCM.")
+                Text("Admite PCM sin compresión, mono/estéreo, 8/16 bits. La conversión a 8-bit mono usa interpolación lineal; no incluye compresión ADPCM.")
             }
         }
         Text(if(busy)"Procesando en segundo plano…" else status,color=MaterialTheme.colorScheme.secondary)
