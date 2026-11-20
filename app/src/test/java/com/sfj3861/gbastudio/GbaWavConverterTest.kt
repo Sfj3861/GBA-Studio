@@ -14,8 +14,31 @@ class GbaWavConverterTest {
         tag("RIFF");u32(36+samples.size);tag("WAVE");tag("fmt ");u32(16);u16(1);u16(1);u32(rate);u32(rate);u16(1);u16(8);tag("data");u32(samples.size);o.write(samples)
         return o.toByteArray()
     }
+    private fun u32(bytes:ByteArray,offset:Int):Long =
+        (bytes[offset].toLong() and 255) or
+            ((bytes[offset+1].toLong() and 255) shl 8) or
+            ((bytes[offset+2].toLong() and 255) shl 16) or
+            ((bytes[offset+3].toLong() and 255) shl 24)
+
     @Test fun convertsAndResamplesPcm(){val r=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,64,128.toByte(),192.toByte())),16000);assertEquals(8,r.samplesUnsigned8.size);assertEquals(16000,r.sampleRate);assertEquals(128,r.samplesUnsigned8[4].toInt() and 255)}
     @Test fun linearlyInterpolatesWhenUpsampling(){val r=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,255.toByte())),16000);assertEquals(4,r.samplesUnsigned8.size);assertTrue((r.samplesUnsigned8[1].toInt() and 255) in 126..129);assertTrue((r.samplesUnsigned8[2].toInt() and 255) in 253..255)}
     @Test fun exportsWaveAndC(){val r=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,128.toByte(),255.toByte())),8000);assertEquals("RIFF",String(GbaWavConverter.wavBytes(r),0,4,Charsets.US_ASCII));assertTrue(GbaWavConverter.cSource(r).contains("gba_audio_samples[3]"));assertTrue(GbaWavConverter.cSource(r).contains("-128, 0, 127"))}
+    @Test fun padsOddLengthPcmDataToRiffWordBoundary() {
+        val sample=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,128.toByte(),255.toByte())),8000)
+        val wave=GbaWavConverter.wavBytes(sample)
+
+        assertEquals(48,wave.size)
+        assertEquals(40L,u32(wave,4))
+        assertEquals(3L,u32(wave,40))
+        assertEquals(0,wave.last().toInt() and 255)
+    }
+    @Test fun doesNotAddPaddingWhenPcmDataLengthIsEven() {
+        val sample=GbaWavConverter.convert(wav8(8000,byteArrayOf(0,128.toByte())),8000)
+        val wave=GbaWavConverter.wavBytes(sample)
+
+        assertEquals(46,wave.size)
+        assertEquals(38L,u32(wave,4))
+        assertEquals(2L,u32(wave,40))
+    }
     @Test(expected=IllegalArgumentException::class) fun rejectsCompressedWave(){val w=wav8(8000,byteArrayOf(128.toByte()));w[20]=3;GbaWavConverter.convert(w)}
 }
