@@ -70,11 +70,16 @@ object GbaWavConverter {
     }
 
     fun wavBytes(sample:GbaPcmSample):ByteArray {
-        val pcm=sample.samplesUnsigned8; val out=ByteArrayOutputStream(44+pcm.size)
+        val pcm=sample.samplesUnsigned8
+        // RIFF chunks are word-aligned. The data chunk length excludes its optional pad byte,
+        // while the enclosing RIFF size includes that byte.
+        val padding=pcm.size and 1
+        val out=ByteArrayOutputStream(44+pcm.size+padding)
         fun u16(v:Int){out.write(v and 255);out.write((v ushr 8) and 255)}
         fun u32(v:Int){u16(v);u16(v ushr 16)}
         fun tag(v:String){out.write(v.toByteArray(Charsets.US_ASCII))}
-        tag("RIFF");u32(36+pcm.size);tag("WAVE");tag("fmt ");u32(16);u16(1);u16(1);u32(sample.sampleRate);u32(sample.sampleRate);u16(1);u16(8);tag("data");u32(pcm.size);out.write(pcm)
+        tag("RIFF");u32(36+pcm.size+padding);tag("WAVE");tag("fmt ");u32(16);u16(1);u16(1);u32(sample.sampleRate);u32(sample.sampleRate);u16(1);u16(8);tag("data");u32(pcm.size);out.write(pcm)
+        if(padding!=0) out.write(0)
         return out.toByteArray()
     }
 }
