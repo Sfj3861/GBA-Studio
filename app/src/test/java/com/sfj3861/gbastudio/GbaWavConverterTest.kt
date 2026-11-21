@@ -11,8 +11,13 @@ class GbaWavConverterTest {
         fun u16(v:Int){o.write(v and 255);o.write(v ushr 8)}
         fun u32(v:Int){u16(v);u16(v ushr 16)}
         fun tag(s:String){o.write(s.toByteArray(Charsets.US_ASCII))}
-        tag("RIFF");u32(36+samples.size);tag("WAVE");tag("fmt ");u32(16);u16(1);u16(1);u32(rate);u32(rate);u16(1);u16(8);tag("data");u32(samples.size);o.write(samples)
+        val padding=samples.size and 1
+        tag("RIFF");u32(36+samples.size+padding);tag("WAVE");tag("fmt ");u32(16);u16(1);u16(1);u32(rate);u32(rate);u16(1);u16(8);tag("data");u32(samples.size);o.write(samples)
+        if(padding!=0)o.write(0)
         return o.toByteArray()
+    }
+    private fun putU32(bytes:ByteArray,offset:Int,value:Int) {
+        repeat(4) { index -> bytes[offset+index]=(value ushr (index*8)).toByte() }
     }
     private fun u32(bytes:ByteArray,offset:Int):Long =
         (bytes[offset].toLong() and 255) or
@@ -41,4 +46,15 @@ class GbaWavConverterTest {
         assertEquals(2L,u32(wave,40))
     }
     @Test(expected=IllegalArgumentException::class) fun rejectsCompressedWave(){val w=wav8(8000,byteArrayOf(128.toByte()));w[20]=3;GbaWavConverter.convert(w)}
+    @Test(expected=IllegalArgumentException::class) fun rejectsRiffSizeLargerThanAvailableFile() {
+        val wave=wav8(8000,byteArrayOf(0,128.toByte()))
+        putU32(wave,4,wave.size-7)
+        GbaWavConverter.convert(wave)
+    }
+    @Test(expected=IllegalArgumentException::class) fun rejectsOddChunkWithoutRequiredPadding() {
+        val valid=wav8(8000,byteArrayOf(0,128.toByte(),255.toByte()))
+        val truncated=valid.copyOf(valid.size-1)
+        putU32(truncated,4,truncated.size-8)
+        GbaWavConverter.convert(truncated)
+    }
 }
