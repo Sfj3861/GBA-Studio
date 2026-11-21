@@ -16,12 +16,15 @@ object GbaWavConverter {
         fun u32(p:Int)=u16(p).toLong() or (u16(p+2).toLong() shl 16)
         fun tag(p:Int)=String(wav,p,4,Charsets.US_ASCII)
         require(tag(0)=="RIFF" && tag(8)=="WAVE") { "No es un archivo RIFF/WAVE." }
-        val end=(u32(4)+8).coerceAtMost(wav.size.toLong()).toInt()
+        val declaredEnd=u32(4)+8L
+        require(declaredEnd in 12L..wav.size.toLong()) { "Tamaño RIFF inválido o archivo truncado." }
+        val end=declaredEnd.toInt()
         var format:Int?=null; var channels:Int?=null; var rate:Int?=null; var bits:Int?=null; var align:Int?=null
         var data=-1; var dataSize=0; var p=12
         while(p+8<=end) {
             val size=u32(p+4); val start=p+8
-            require(size<=Int.MAX_VALUE && start.toLong()+size<=end.toLong()) { "Chunk WAV truncado." }
+            val paddedEnd=start.toLong()+size+(size and 1L)
+            require(size<=Int.MAX_VALUE && paddedEnd<=end.toLong()) { "Chunk WAV truncado o sin relleno RIFF." }
             when(tag(p)) {
                 "fmt " -> { require(size>=16) { "Chunk fmt demasiado corto." }; format=u16(start); channels=u16(start+2); rate=u32(start+4).toInt(); align=u16(start+12); bits=u16(start+14) }
                 "data" -> if(data<0) { data=start; dataSize=size.toInt() }
