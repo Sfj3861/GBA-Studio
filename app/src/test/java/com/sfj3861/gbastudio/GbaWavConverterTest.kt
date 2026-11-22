@@ -57,4 +57,10 @@ class GbaWavConverterTest {
         putU32(truncated,4,truncated.size-8)
         GbaWavConverter.convert(truncated)
     }
+    @Test(expected=IllegalArgumentException::class) fun rejectsTrailingPartialChunkHeader() {
+        val valid=wav8(8000,byteArrayOf(0,128.toByte()))
+        val malformed=valid+byteArrayOf(1,2,3,4)
+        putU32(malformed,4,(u32(valid,4)+4).toInt())
+        GbaWavConverter.convert(malformed)
+    }
 }
