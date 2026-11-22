@@ -31,6 +31,7 @@ object GbaWavConverter {
             }
             p=start+size.toInt()+(size.toInt() and 1)
         }
+        require(p==end) { "Cabecera de chunk WAV truncada." }
         require(format==1) { "Solo se admite PCM lineal sin compresión." }
         val ch=channels?:error("Falta fmt."); val hz=rate?:error("Falta frecuencia."); val depth=bits?:error("Falta profundidad."); val block=align?:error("Falta blockAlign.")
         require(ch in 1..2 && depth in setOf(8,16) && hz in 4_000..192_000) { "Se admite PCM mono/estéreo de 8/16 bits y 4–192 kHz." }
