@@ -1,16 +1,5 @@
 package com.sfj3861.gbastudio
 
-/**
- * AudioTrack reports a cumulative, unsigned 32-bit frame count for MODE_STATIC.
- * Comparing this position with the mono sample count lets preview playback finish
- * even when the track remains in PLAYSTATE_PLAYING after its static buffer ends.
- */
-internal fun hasStaticPlaybackReachedEnd(playbackHeadPosition: Int, totalFrames: Int): Boolean {
-    require(totalFrames >= 0) { "El número total de frames no puede ser negativo." }
-    val playedFrames = playbackHeadPosition.toLong() and 0xFFFF_FFFFL
-    return playedFrames >= totalFrames.toLong()
-}
-
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -49,6 +38,17 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * AudioTrack reports a cumulative, unsigned 32-bit frame count for MODE_STATIC.
+ * Comparing this position with the mono sample count lets preview playback finish
+ * even when the track remains in PLAYSTATE_PLAYING after its static buffer ends.
+ */
+internal fun hasStaticPlaybackReachedEnd(playbackHeadPosition: Int, totalFrames: Int): Boolean {
+    require(totalFrames >= 0) { "El número total de frames no puede ser negativo." }
+    val playedFrames = playbackHeadPosition.toLong() and 0xFFFF_FFFFL
+    return playedFrames >= totalFrames.toLong()
+}
 
 @Composable
 fun SpriteAudioToolsScreen() {
