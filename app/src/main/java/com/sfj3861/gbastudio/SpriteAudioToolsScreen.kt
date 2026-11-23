@@ -96,11 +96,11 @@ fun SpriteAudioToolsScreen() {
             playing = true
             playbackJob = scope.launch {
                 try {
-                    withContext(Dispatchers.IO) {
+                    val completed = withContext(Dispatchers.IO) {
                         val written = track.write(sample.samplesUnsigned8, 0, sample.samplesUnsigned8.size, AudioTrack.WRITE_BLOCKING)
                         check(written == sample.samplesUnsigned8.size) { "No se pudieron cargar todas las muestras de audio." }
                         track.play()
-                        val completed = withTimeoutOrNull(sample.durationMs + 5_000L) {
+                        withTimeoutOrNull(sample.durationMs + 5_000L) {
                             while (
                                 track.playState == AudioTrack.PLAYSTATE_PLAYING &&
                                 !hasStaticPlaybackReachedEnd(
@@ -115,9 +115,9 @@ fun SpriteAudioToolsScreen() {
                                 sample.samplesUnsigned8.size
                             )
                         } ?: false
-                        if (!completed) {
-                            status = "La reproducción se interrumpió antes de completar la muestra."
-                        }
+                    }
+                    if (!completed) {
+                        status = "La reproducción se interrumpió antes de completar la muestra."
                     }
                 } catch (e: CancellationException) {
                     throw e
