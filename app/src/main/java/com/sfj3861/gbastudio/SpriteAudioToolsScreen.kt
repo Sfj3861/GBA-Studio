@@ -1,5 +1,16 @@
 package com.sfj3861.gbastudio
 
+/**
+ * AudioTrack reports a cumulative, unsigned 32-bit frame count for MODE_STATIC.
+ * Comparing this position with the mono sample count lets preview playback finish
+ * even when the track remains in PLAYSTATE_PLAYING after its static buffer ends.
+ */
+internal fun hasStaticPlaybackReachedEnd(playbackHeadPosition: Int, totalFrames: Int): Boolean {
+    require(totalFrames >= 0) { "El número total de frames no puede ser negativo." }
+    val playedFrames = playbackHeadPosition.toLong() and 0xFFFF_FFFFL
+    return playedFrames >= totalFrames.toLong()
+}
+
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -37,6 +48,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun SpriteAudioToolsScreen() {
@@ -88,13 +100,33 @@ fun SpriteAudioToolsScreen() {
                         val written = track.write(sample.samplesUnsigned8, 0, sample.samplesUnsigned8.size, AudioTrack.WRITE_BLOCKING)
                         check(written == sample.samplesUnsigned8.size) { "No se pudieron cargar todas las muestras de audio." }
                         track.play()
-                        while (track.playState == AudioTrack.PLAYSTATE_PLAYING) delay(25)
+                        val completed = withTimeoutOrNull(sample.durationMs + 5_000L) {
+                            while (
+                                track.playState == AudioTrack.PLAYSTATE_PLAYING &&
+                                !hasStaticPlaybackReachedEnd(
+                                    track.playbackHeadPosition,
+                                    sample.samplesUnsigned8.size
+                                )
+                            ) {
+                                delay(10)
+                            }
+                            hasStaticPlaybackReachedEnd(
+                                track.playbackHeadPosition,
+                                sample.samplesUnsigned8.size
+                            )
+                        } ?: false
+                        if (!completed) {
+                            status = "La reproducción se interrumpió antes de completar la muestra."
+                        }
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     status = "Error de reproducción: ${e.message}"
                 } finally {
+                    runCatching {
+                        if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.stop()
+                    }
                     runCatching { track.release() }
                     if (audioTrack === track) audioTrack = null
                     playing = false
