@@ -26,4 +26,18 @@ class StaticAudioPlaybackProgressTest {
     fun rejectsNegativeTotalFrameCount() {
         hasStaticPlaybackReachedEnd(0, -1)
     }
+
+    @Test
+    fun stalePlaybackCannotClearStateOwnedByANewerTrack() {
+        val oldTrack = Any()
+        val newTrack = Any()
+
+        assertFalse(ownsStaticPlaybackState(newTrack, oldTrack))
+        assertTrue(ownsStaticPlaybackState(newTrack, newTrack))
+    }
+
+    @Test
+    fun stoppedPlaybackNoLongerOwnsTheUiState() {
+        assertFalse(ownsStaticPlaybackState(null, Any()))
+    }
 }
