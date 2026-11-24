@@ -50,6 +50,10 @@ internal fun hasStaticPlaybackReachedEnd(playbackHeadPosition: Int, totalFrames:
     return playedFrames >= totalFrames.toLong()
 }
 
+/** A finishing playback job may update UI state only while it still owns the active track. */
+internal fun ownsStaticPlaybackState(activeTrack: Any?, finishingTrack: Any): Boolean =
+    activeTrack === finishingTrack
+
 @Composable
 fun SpriteAudioToolsScreen() {
     val context= LocalContext.current
@@ -116,20 +120,24 @@ fun SpriteAudioToolsScreen() {
                             )
                         } ?: false
                     }
-                    if (!completed) {
+                    if (!completed && ownsStaticPlaybackState(audioTrack, track)) {
                         status = "La reproducción se interrumpió antes de completar la muestra."
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    status = "Error de reproducción: ${e.message}"
+                    if (ownsStaticPlaybackState(audioTrack, track)) {
+                        status = "Error de reproducción: ${e.message}"
+                    }
                 } finally {
                     runCatching {
                         if (track.playState == AudioTrack.PLAYSTATE_PLAYING) track.stop()
                     }
                     runCatching { track.release() }
-                    if (audioTrack === track) audioTrack = null
-                    playing = false
+                    if (ownsStaticPlaybackState(audioTrack, track)) {
+                        audioTrack = null
+                        playing = false
+                    }
                 }
             }
         } catch (e: Exception) {
