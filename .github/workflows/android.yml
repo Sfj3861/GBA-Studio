@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 jobs:
-  assemble-debug:
+  beta-1:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -43,13 +43,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Run unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest
+      - name: Run Beta-1 unit tests
+        run: gradle --no-daemon :app:testBetaUnitTest
 
-      - name: Assemble debug APK
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Upload debug APK
+      - name: Assemble Beta-1 APK
+        run: gradle --no-daemon :app:assembleBeta
+      - name: Rename Beta-1 APK
+        run: cp app/build/outputs/apk/beta/app-beta.apk GBA-Studio-Beta-1.apk
+      - name: Upload Beta-1 APK
         uses: actions/upload-artifact@v4
         with:
-          name: gba-studio-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: gba-studio-beta-1
+          path: GBA-Studio-Beta-1.apk

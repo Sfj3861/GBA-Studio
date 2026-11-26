@@ -5,7 +5,8 @@
 - [x] Responsive compact/tablet navigation
 - [x] Introductory tutorial
 - [x] Native C++/JNI bootstrap
-- [x] Green CI build and debug APK artifact generation
+- [x] Green CI build and debug APK artifact generation (previous validation)
+- [ ] Beta-1 variant, unit tests and installable APK artifact
 - [ ] Physical-device verification
 
 ## Milestone 1 — Project workspace

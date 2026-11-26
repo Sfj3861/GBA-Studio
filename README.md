@@ -37,7 +37,7 @@ This is an evolving development build, not yet a complete GBA IDE.
 - **Emulator:** still experimental and cannot run complete GBA games. CPU instruction coverage is partial; memory regions now include ROM, EWRAM, IWRAM, IO storage, palette RAM, VRAM and OAM, but IO side effects, BIOS, DMA, timers, interrupts, audio and cartridge peripherals are not implemented. The software PPU preview currently renders mode 0 text backgrounds only; OBJ sprites, bitmap modes, blending, windows and scanline timing are absent. Debugging adds PC breakpoints, bounded traces and mapped-memory reads.
 - **ChatGPT:** only backend URL configuration, project-context filtering and change-approval foundations exist. There is no OpenAI API client, network transport, chat UI, token streaming, rate-limit handling or provider request yet. OpenAI credentials must be held by the backend, never in the APK.
 
-GitHub Actions runs JVM unit tests and assembles a debug APK for branch pushes. Check the latest workflow run to confirm the status of the current head; physical-device testing remains required. No release APK is claimed by this repository state.
+GitHub Actions runs JVM unit tests for the `beta` variant and assembles an installable Beta-1 APK (`GBA-Studio-Beta-1.apk`) for branch pushes. The beta variant is derived from the release build type (non-debuggable) and uses the runner's debug signing key so the artifact can be installed without storing signing credentials in the repository. Because the CI runner's key is ephemeral, a later beta APK may not be able to update an earlier installation; uninstalling the previous beta may be necessary. This is not stable-release signing. Physical-device testing remains required.
 
 ## Build requirements
 
