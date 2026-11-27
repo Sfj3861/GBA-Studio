@@ -1,0 +1,57 @@
+name: Android build
+
+on:
+  push:
+    branches: [main, "foundation/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+
+# Keep push and pull_request checks isolated: a push event must not cancel the
+# PR validation for the same branch (or vice versa). Superseded runs are still
+# cancelled within each event type.
+concurrency:
+  group: gba-studio-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+# The workflow only checks out source and builds/tests it.
+permissions:
+  contents: read
+
+jobs:
+  beta-1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools"
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install Android build tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Run Beta-1 unit tests
+        run: gradle --no-daemon :app:testBetaUnitTest
+
+      - name: Assemble Beta-1 APK
+        run: gradle --no-daemon :app:assembleBeta
+      - name: Rename Beta-1 APK
+        run: cp app/build/outputs/apk/beta/app-beta.apk GBA-Studio-Beta-1.apk
+      - name: Upload Beta-1 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gba-studio-beta-1
+          path: GBA-Studio-Beta-1.apk
