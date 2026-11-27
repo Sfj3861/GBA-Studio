@@ -6,7 +6,7 @@
 - [x] Introductory tutorial
 - [x] Native C++/JNI bootstrap
 - [x] Green CI build and debug APK artifact generation (previous validation)
-- [ ] Beta-1 variant, unit tests and installable APK artifact
+- [x] Beta-1 variant, unit tests and installable APK artifact (CI verified on 26 November 2026; push and PR checks passed on commit 4d182b16)
 - [ ] Physical-device verification
 
 ## Milestone 1 — Project workspace
